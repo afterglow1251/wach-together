@@ -26,6 +26,9 @@ const MIME_TYPES: Record<string, string> = {
   ".ico": "image/x-icon",
 };
 
+// Store client state outside of ws.data for reliability
+const wsClients = new WeakMap<any, { clientId: string; roomCode: string | null; name: string }>();
+
 const app = new Elysia()
 
   // Parse uakino URL
@@ -118,70 +121,73 @@ const app = new Elysia()
   // WebSocket for room sync
   .ws("/ws", {
     open(ws) {
-      const clientId = generateClientId();
-      ws.data = { clientId, roomCode: null, name: "Guest" } as any;
-      ws.send(JSON.stringify({ type: "connected", clientId }));
+      const cid = generateClientId();
+      wsClients.set(ws, { clientId: cid, roomCode: null, name: "Guest" });
+      ws.send(JSON.stringify({ type: "connected", clientId: cid }));
+      console.log(`[WS] Client connected: ${cid}`);
     },
 
     message(ws, rawMsg) {
-      const data = ws.data as any;
-      let msg: WSMessage;
+      const state = wsClients.get(ws);
+      if (!state) return;
 
+      let msg: WSMessage;
       try {
         msg = typeof rawMsg === "string" ? JSON.parse(rawMsg) : rawMsg;
       } catch {
         return;
       }
 
+      console.log(`[WS] ${state.clientId} -> ${msg.type}`, msg.type === "join" ? `room=${(msg as any).roomCode}` : "");
+
       switch (msg.type) {
         case "join": {
           const name = msg.name || "Guest";
-          data.name = name;
+          state.name = name;
 
           let room: Room | undefined;
 
-          if (msg.roomCode) {
-            room = getRoom(msg.roomCode);
+          if (msg.roomCode && msg.roomCode.trim() !== "") {
+            room = getRoom(msg.roomCode.trim());
             if (!room) {
-              ws.send(JSON.stringify({ type: "error", message: "Room not found" }));
+              ws.send(JSON.stringify({ type: "error", message: `Кімнату ${msg.roomCode} не знайдено` }));
               return;
             }
           } else {
-            // Create new room
-            room = createRoom(data.clientId);
+            room = createRoom(state.clientId);
           }
 
-          data.roomCode = room.code;
+          state.roomCode = room.code;
 
-          const isHost = room.hostId === data.clientId || room.clients.size === 0;
+          const isHost = room.hostId === state.clientId || room.clients.size === 0;
           if (isHost && room.clients.size === 0) {
-            room.hostId = data.clientId;
+            room.hostId = state.clientId;
           }
 
           const client: RoomClient = {
-            id: data.clientId,
+            id: state.clientId,
             ws,
-            isHost: room.hostId === data.clientId,
+            isHost: room.hostId === state.clientId,
             name,
           };
 
           addClient(room, client);
 
-          // Send room info to the joining client
-          ws.send(JSON.stringify({ type: "room-info", room: getRoomInfo(room, data.clientId) }));
+          const roomInfo = getRoomInfo(room, state.clientId);
+          console.log(`[WS] ${state.clientId} joined room ${room.code}, isHost=${roomInfo.isHost}, clients=${room.clients.size}, hasStream=${!!roomInfo.streamUrl}`);
+          ws.send(JSON.stringify({ type: "room-info", room: roomInfo }));
 
-          // Notify others
           broadcastToRoom(
             room,
             { type: "user-joined", name, count: room.clients.size },
-            data.clientId
+            state.clientId
           );
           break;
         }
 
         case "set-show": {
-          const room = getRoom(data.roomCode);
-          if (!room || room.hostId !== data.clientId) return;
+          const room = getRoom(state.roomCode!);
+          if (!room || room.hostId !== state.clientId) return;
 
           room.show = msg.show;
           room.currentEpisode = null;
@@ -194,8 +200,8 @@ const app = new Elysia()
         }
 
         case "select-episode": {
-          const room = getRoom(data.roomCode);
-          if (!room || room.hostId !== data.clientId) return;
+          const room = getRoom(state.roomCode!);
+          if (!room || room.hostId !== state.clientId) return;
 
           room.currentEpisode = msg.episode;
           room.currentTime = 0;
@@ -204,10 +210,11 @@ const app = new Elysia()
         }
 
         case "stream-ready": {
-          const room = getRoom(data.roomCode);
-          if (!room || room.hostId !== data.clientId) return;
+          const room = getRoom(state.roomCode!);
+          if (!room || room.hostId !== state.clientId) return;
 
           room.streamUrl = msg.streamUrl;
+          console.log(`[WS] Stream ready in room ${room.code}: ${msg.streamUrl.substring(0, 60)}...`);
           broadcastToRoom(room, {
             type: "episode-changed",
             episode: room.currentEpisode!,
@@ -217,37 +224,37 @@ const app = new Elysia()
         }
 
         case "play": {
-          const room = getRoom(data.roomCode);
-          if (!room || room.hostId !== data.clientId) return;
+          const room = getRoom(state.roomCode!);
+          if (!room || room.hostId !== state.clientId) return;
 
           room.isPlaying = true;
           room.lastSyncAt = Date.now();
-          broadcastToRoom(room, { type: "play", time: room.currentTime }, data.clientId);
+          broadcastToRoom(room, { type: "play", time: room.currentTime }, state.clientId);
           break;
         }
 
         case "pause": {
-          const room = getRoom(data.roomCode);
-          if (!room || room.hostId !== data.clientId) return;
+          const room = getRoom(state.roomCode!);
+          if (!room || room.hostId !== state.clientId) return;
 
           room.isPlaying = false;
-          broadcastToRoom(room, { type: "pause", time: room.currentTime }, data.clientId);
+          broadcastToRoom(room, { type: "pause", time: room.currentTime }, state.clientId);
           break;
         }
 
         case "seek": {
-          const room = getRoom(data.roomCode);
-          if (!room || room.hostId !== data.clientId) return;
+          const room = getRoom(state.roomCode!);
+          if (!room || room.hostId !== state.clientId) return;
 
           room.currentTime = msg.time;
           room.lastSyncAt = Date.now();
-          broadcastToRoom(room, { type: "seek", time: msg.time }, data.clientId);
+          broadcastToRoom(room, { type: "seek", time: msg.time }, state.clientId);
           break;
         }
 
         case "sync": {
-          const room = getRoom(data.roomCode);
-          if (!room || room.hostId !== data.clientId) return;
+          const room = getRoom(state.roomCode!);
+          if (!room || room.hostId !== state.clientId) return;
 
           room.currentTime = msg.time;
           room.isPlaying = msg.isPlaying;
@@ -255,13 +262,13 @@ const app = new Elysia()
           broadcastToRoom(
             room,
             { type: "sync", time: msg.time, isPlaying: msg.isPlaying },
-            data.clientId
+            state.clientId
           );
           break;
         }
 
         case "sync-request": {
-          const room = getRoom(data.roomCode);
+          const room = getRoom(state.roomCode!);
           if (!room) return;
 
           ws.send(
@@ -275,28 +282,33 @@ const app = new Elysia()
         }
 
         case "chat": {
-          const room = getRoom(data.roomCode);
+          const room = getRoom(state.roomCode!);
           if (!room) return;
 
-          broadcastToRoom(room, { type: "chat", name: data.name, text: msg.text });
+          broadcastToRoom(room, { type: "chat", name: state.name, text: msg.text });
           break;
         }
       }
     },
 
     close(ws) {
-      const data = ws.data as any;
-      if (!data.roomCode) return;
+      const state = wsClients.get(ws);
+      if (!state || !state.roomCode) {
+        wsClients.delete(ws);
+        return;
+      }
 
-      const room = getRoom(data.roomCode);
-      if (!room) return;
-
-      removeClient(room, data.clientId);
-      broadcastToRoom(room, {
-        type: "user-left",
-        name: data.name,
-        count: room.clients.size,
-      });
+      const room = getRoom(state.roomCode);
+      if (room) {
+        removeClient(room, state.clientId);
+        broadcastToRoom(room, {
+          type: "user-left",
+          name: state.name,
+          count: room.clients.size,
+        });
+        console.log(`[WS] ${state.clientId} left room ${state.roomCode}, clients=${room.clients.size}`);
+      }
+      wsClients.delete(ws);
     },
   })
 
