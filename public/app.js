@@ -1,6 +1,6 @@
 // ---- State ----
 let ws = null;
-let clientId = null;
+let clientId = "c_" + Math.random().toString(36).slice(2, 10) + "_" + Date.now().toString(36);
 let roomCode = null;
 let isHost = false;
 let show = null;
@@ -78,15 +78,12 @@ function connectWS(onOpen) {
 
 function send(msg) {
   if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify(msg));
+    ws.send(JSON.stringify({ ...msg, clientId }));
   }
 }
 
 function handleWSMessage(msg) {
   switch (msg.type) {
-    case "connected":
-      clientId = msg.clientId;
-      break;
 
     case "room-info":
       setupRoom(msg.room);
@@ -456,6 +453,11 @@ els.video.addEventListener("pause", () => {
 els.video.addEventListener("seeked", () => {
   if (!isHost || ignoreEvents) return;
   send({ type: "seek", time: els.video.currentTime });
+});
+
+// Cleanup on page unload
+window.addEventListener("beforeunload", () => {
+  send({ type: "disconnect" });
 });
 
 // ---- Helpers ----
