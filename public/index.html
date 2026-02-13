@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watch Together</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+<body>
+  <!-- Landing Screen -->
+  <div id="landing" class="screen active">
+    <div class="landing-card">
+      <h1>Watch Together</h1>
+      <p class="subtitle">Дивись фільми та серіали разом з друзями</p>
+
+      <div class="input-group">
+        <label>Твоє ім'я</label>
+        <input type="text" id="userName" placeholder="Гість" maxlength="20">
+      </div>
+
+      <div class="landing-actions">
+        <button id="btnCreate" class="btn btn-primary">Створити кімнату</button>
+        <div class="divider"><span>або</span></div>
+        <div class="input-group">
+          <label>Код кімнати</label>
+          <div class="join-row">
+            <input type="text" id="joinCode" placeholder="XXXXX" maxlength="5" style="text-transform:uppercase">
+            <button id="btnJoin" class="btn btn-secondary">Увійти</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Room Screen -->
+  <div id="room" class="screen">
+    <div class="room-layout">
+      <!-- Sidebar -->
+      <aside id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+          <div class="room-code-block">
+            <span class="label">Кімната</span>
+            <span id="roomCode" class="room-code">-----</span>
+            <button id="btnCopyCode" class="btn-icon" title="Копіювати код">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+          </div>
+          <div class="room-meta">
+            <span id="userCount">1 глядач</span>
+            <span id="hostBadge" class="host-badge hidden">HOST</span>
+          </div>
+        </div>
+
+        <!-- URL Input (host only) -->
+        <div id="urlSection" class="sidebar-section hidden">
+          <div class="input-group">
+            <label>UaKino URL</label>
+            <div class="join-row">
+              <input type="text" id="uakinoUrl" placeholder="https://uakino.best/...">
+              <button id="btnParse" class="btn btn-primary btn-sm">Завантажити</button>
+            </div>
+          </div>
+          <div id="parseStatus" class="status-text"></div>
+        </div>
+
+        <!-- Manual m3u8 fallback (host only) -->
+        <div id="manualSection" class="sidebar-section hidden">
+          <div class="input-group">
+            <label>Або вставити .m3u8 вручну</label>
+            <div class="join-row">
+              <input type="text" id="manualM3u8" placeholder="https://...m3u8">
+              <button id="btnManual" class="btn btn-secondary btn-sm">Play</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Show Info -->
+        <div id="showInfo" class="sidebar-section hidden">
+          <h3 id="showTitle" class="show-title"></h3>
+        </div>
+
+        <!-- Dub Selector -->
+        <div id="dubSection" class="sidebar-section hidden">
+          <label>Озвучення</label>
+          <select id="dubSelect" class="select"></select>
+        </div>
+
+        <!-- Episode List -->
+        <div id="episodeSection" class="sidebar-section hidden">
+          <label>Серії</label>
+          <ul id="episodeList" class="episode-list"></ul>
+        </div>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="main-content">
+        <div class="player-wrapper">
+          <video id="video" playsinline controls></video>
+          <div id="playerOverlay" class="player-overlay">
+            <p>Очікування відео...</p>
+          </div>
+        </div>
+
+        <!-- Quality Selector -->
+        <div id="controls" class="player-controls hidden">
+          <div class="controls-left">
+            <span id="nowPlaying" class="now-playing"></span>
+          </div>
+          <div class="controls-right">
+            <select id="qualitySelect" class="select select-sm">
+              <option value="-1">Auto</option>
+            </select>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
