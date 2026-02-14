@@ -3,16 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Watch Together</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90' fill='%23e84393'>♥</text></svg>">
+  <title>Watch ♥ Together</title>
   <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
 </head>
 <body>
   <!-- Landing Screen -->
   <div id="landing" class="screen">
+    <div id="hearts">
+      <div class="heart" style="left:5%;width:12px;height:12px;animation-duration:12s;animation-delay:0s;--heart-opacity:0.08"></div>
+      <div class="heart" style="left:15%;width:18px;height:18px;animation-duration:14s;animation-delay:2s;--heart-opacity:0.1"></div>
+      <div class="heart" style="left:25%;width:10px;height:10px;animation-duration:10s;animation-delay:5s;--heart-opacity:0.07"></div>
+      <div class="heart" style="left:35%;width:22px;height:22px;animation-duration:16s;animation-delay:1s;--heart-opacity:0.09"></div>
+      <div class="heart" style="left:45%;width:14px;height:14px;animation-duration:11s;animation-delay:8s;--heart-opacity:0.12"></div>
+      <div class="heart" style="left:55%;width:20px;height:20px;animation-duration:15s;animation-delay:3s;--heart-opacity:0.08"></div>
+      <div class="heart" style="left:65%;width:16px;height:16px;animation-duration:13s;animation-delay:10s;--heart-opacity:0.1"></div>
+      <div class="heart" style="left:75%;width:25px;height:25px;animation-duration:18s;animation-delay:6s;--heart-opacity:0.07"></div>
+      <div class="heart" style="left:85%;width:12px;height:12px;animation-duration:9s;animation-delay:12s;--heart-opacity:0.15"></div>
+      <div class="heart" style="left:92%;width:15px;height:15px;animation-duration:14s;animation-delay:4s;--heart-opacity:0.09"></div>
+      <div class="heart" style="left:10%;width:18px;height:18px;animation-duration:17s;animation-delay:7s;--heart-opacity:0.08"></div>
+      <div class="heart" style="left:50%;width:11px;height:11px;animation-duration:12s;animation-delay:15s;--heart-opacity:0.11"></div>
+    </div>
     <div class="landing-card">
-      <h1>Watch Together</h1>
-      <p class="subtitle">Watch movies and shows together with friends</p>
+      <h1>Watch <span class="title-heart">♥</span> Together</h1>
+      <p class="subtitle">Your perfect movie night for two</p>
 
       <div class="input-group">
         <label>Your name</label>
@@ -61,19 +78,8 @@
               <button id="btnParse" class="btn btn-primary btn-sm">Load</button>
             </div>
           </div>
-          <div id="parseStatus" class="status-text"></div>
         </div>
 
-        <!-- Manual m3u8 fallback (host only) -->
-        <div id="manualSection" class="sidebar-section hidden">
-          <div class="input-group">
-            <label>Or paste .m3u8 manually</label>
-            <div class="join-row">
-              <input type="text" id="manualM3u8" placeholder="https://...m3u8">
-              <button id="btnManual" class="btn btn-secondary btn-sm">Play</button>
-            </div>
-          </div>
-        </div>
 
         <!-- Show Info -->
         <div id="showInfo" class="sidebar-section hidden">
@@ -88,7 +94,9 @@
 
         <!-- Episode List -->
         <div id="episodeSection" class="sidebar-section hidden">
-          <label>Episodes</label>
+          <div class="input-group">
+            <label>Episodes</label>
+          </div>
           <ul id="episodeList" class="episode-list"></ul>
         </div>
       </aside>
@@ -102,17 +110,6 @@
           </div>
         </div>
 
-        <!-- Quality Selector -->
-        <div id="controls" class="player-controls hidden">
-          <div class="controls-left">
-            <span id="nowPlaying" class="now-playing"></span>
-          </div>
-          <div class="controls-right">
-            <select id="qualitySelect" class="select select-sm">
-              <option value="-1">Auto</option>
-            </select>
-          </div>
-        </div>
       </main>
     </div>
   </div>

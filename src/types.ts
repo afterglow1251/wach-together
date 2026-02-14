@@ -20,6 +20,7 @@ export interface Room {
   code: string;
   hostId: string;
   show: ParsedShow | null;
+  sourceUrl: string | null;
   currentEpisode: Episode | null;
   streamUrl: string | null;
   isPlaying: boolean;
@@ -67,6 +68,7 @@ export interface RoomInfo {
   isHost: boolean;
   clientCount: number;
   show: ParsedShow | null;
+  sourceUrl: string | null;
   currentEpisode: Episode | null;
   streamUrl: string | null;
   isPlaying: boolean;

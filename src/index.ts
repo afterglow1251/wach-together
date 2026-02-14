@@ -62,7 +62,12 @@ const app = new Elysia()
     "/api/parse",
     async ({ body }) => {
       try {
-        const show = await parseUakinoPage(body.url);
+        const show = await Promise.race([
+          parseUakinoPage(body.url),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("Timed out loading page (30s)")), 30000)
+          ),
+        ]);
         return { ok: true, show };
       } catch (e: any) {
         return { ok: false, error: e.message };
@@ -76,7 +81,12 @@ const app = new Elysia()
     "/api/stream",
     async ({ body }) => {
       try {
-        const streamUrl = await extractStreamUrl(body.url);
+        const streamUrl = await Promise.race([
+          extractStreamUrl(body.url),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("Timed out extracting stream (30s)")), 30000)
+          ),
+        ]);
         return { ok: true, streamUrl };
       } catch (e: any) {
         return { ok: false, error: e.message };
@@ -265,6 +275,7 @@ const app = new Elysia()
           if (!room || room.hostId !== cid) return;
 
           room.show = msg.show;
+          room.sourceUrl = msg.sourceUrl || null;
           room.currentEpisode = null;
           room.streamUrl = null;
           room.currentTime = 0;

@@ -36,10 +36,6 @@ const els = {
   urlSection: $("#urlSection"),
   uakinoUrl: $("#uakinoUrl"),
   btnParse: $("#btnParse"),
-  parseStatus: $("#parseStatus"),
-  manualSection: $("#manualSection"),
-  manualM3u8: $("#manualM3u8"),
-  btnManual: $("#btnManual"),
   showInfo: $("#showInfo"),
   showTitle: $("#showTitle"),
   dubSection: $("#dubSection"),
@@ -48,9 +44,6 @@ const els = {
   episodeList: $("#episodeList"),
   video: $("#video"),
   playerOverlay: $("#playerOverlay"),
-  controls: $("#controls"),
-  nowPlaying: $("#nowPlaying"),
-  qualitySelect: $("#qualitySelect"),
 };
 
 // ---- Session Persistence ----
@@ -236,8 +229,12 @@ function setupRoom(room) {
   els.userCount.textContent = formatViewers(room.clientCount);
   els.hostBadge.classList.toggle("hidden", !isHost);
   els.urlSection.classList.toggle("hidden", !isHost);
-  els.manualSection.classList.toggle("hidden", !isHost);
 
+
+
+  if (room.sourceUrl) {
+    els.uakinoUrl.value = room.sourceUrl;
+  }
 
   if (room.show) {
     show = room.show;
@@ -327,8 +324,6 @@ function highlightEpisode() {
   els.episodeList.querySelectorAll("li").forEach((li) => {
     li.classList.toggle("active", li.dataset.id === currentEpisode.id);
   });
-  // Update now playing
-  els.nowPlaying.textContent = currentEpisode.name;
 }
 
 // ---- HLS Player ----
@@ -337,7 +332,6 @@ function loadStream(url) {
   const proxiedUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
 
   els.playerOverlay.classList.add("hidden");
-  els.controls.classList.remove("hidden");
 
   if (hls) {
     hls.destroy();
@@ -355,7 +349,6 @@ function loadStream(url) {
 
     hls.on(Hls.Events.MANIFEST_PARSED, (e, data) => {
       console.log("HLS manifest parsed, levels:", data.levels.length);
-      populateQualitySelector(data.levels);
       // Auto-play for host
       if (isHost) {
         els.video.play().catch((err) => console.log("Autoplay blocked:", err));
@@ -390,14 +383,6 @@ function loadStream(url) {
   }
 }
 
-function populateQualitySelector(levels) {
-  els.qualitySelect.innerHTML = '<option value="-1">Auto</option>';
-  levels.forEach((level, i) => {
-    const height = level.height;
-    const label = height ? `${height}p` : `Level ${i}`;
-    els.qualitySelect.innerHTML += `<option value="${i}">${label}</option>`;
-  });
-}
 
 // ---- Event Listeners ----
 
@@ -425,8 +410,7 @@ els.joinCode.addEventListener("keydown", (e) => {
 // Copy room code
 els.btnCopyCode.addEventListener("click", () => {
   navigator.clipboard.writeText(roomCode).then(() => {
-    els.btnCopyCode.title = "Copied!";
-    setTimeout(() => (els.btnCopyCode.title = "Copy code"), 2000);
+    toast("Room code copied!");
   });
 });
 
@@ -436,8 +420,6 @@ els.btnParse.addEventListener("click", async () => {
   if (!url) return;
 
   els.btnParse.disabled = true;
-  els.parseStatus.textContent = "Loading...";
-  els.parseStatus.className = "status-text";
 
   try {
     const resp = await fetch("/api/parse", {
@@ -449,31 +431,18 @@ els.btnParse.addEventListener("click", async () => {
 
     if (data.ok) {
       show = data.show;
-      els.parseStatus.textContent = `Found ${show.dubs.reduce((a, d) => a + d.episodes.length, 0)} episodes`;
-      els.parseStatus.className = "status-text success";
+      const count = show.dubs.reduce((a, d) => a + d.episodes.length, 0);
+      toast(`Found ${count} episodes`);
       renderShow();
-      send({ type: "set-show", show });
+      send({ type: "set-show", show, sourceUrl: url });
     } else {
-      els.parseStatus.textContent = data.error;
-      els.parseStatus.className = "status-text error";
+      toast(data.error, "error");
     }
   } catch (e) {
-    els.parseStatus.textContent = "Connection error";
-    els.parseStatus.className = "status-text error";
+    toast("Connection error", "error");
   }
 
   els.btnParse.disabled = false;
-});
-
-// Manual m3u8
-els.btnManual.addEventListener("click", () => {
-  const url = els.manualM3u8.value.trim();
-  if (!url) return;
-
-  currentEpisode = { id: "manual", name: "Manual stream", url: "", dubName: "" };
-  loadStream(url);
-  send({ type: "select-episode", episode: currentEpisode });
-  send({ type: "stream-ready", streamUrl: url });
 });
 
 // Dub selector
@@ -513,20 +482,13 @@ els.episodeList.addEventListener("click", async (e) => {
       send({ type: "stream-ready", streamUrl: data.streamUrl });
     } else {
       // Show error, render back
-      alert(`Failed to get video: ${data.error}\n\nTry pasting .m3u8 manually.`);
+      alert(`Failed to get video: ${data.error}`);
     }
   } catch (e) {
     alert("Server connection error");
   }
 
   renderEpisodes();
-});
-
-// Quality selector
-els.qualitySelect.addEventListener("change", () => {
-  if (hls) {
-    hls.currentLevel = parseInt(els.qualitySelect.value);
-  }
 });
 
 // Video events - host broadcasts to keep everyone in sync
@@ -543,6 +505,20 @@ els.video.addEventListener("pause", () => {
 els.video.addEventListener("seeked", () => {
   if (ignoreEvents || !isHost) return;
   send({ type: "seek", time: els.video.currentTime });
+});
+
+// Spacebar toggle play/pause when nothing is focused
+document.addEventListener("keydown", (e) => {
+  if (e.code !== "Space") return;
+  const tag = document.activeElement.tagName;
+  if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || tag === "BUTTON") return;
+  if (!screens.room.classList.contains("active")) return;
+  e.preventDefault();
+  if (els.video.paused) {
+    els.video.play().catch(() => {});
+  } else {
+    els.video.pause();
+  }
 });
 
 // Browser back/forward navigation
@@ -574,6 +550,25 @@ window.addEventListener("popstate", () => {
 });
 
 // ---- Helpers ----
+const TOAST_ICONS = {
+  success: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>',
+  error: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>',
+};
+
+function toast(text, type = "success") {
+  const icon = TOAST_ICONS[type] || TOAST_ICONS.success;
+  const node = document.createElement("div");
+  node.className = "sonner-content";
+  node.innerHTML = '<span class="sonner-icon">' + icon + "</span><span>" + text + "</span>";
+  Toastify({
+    node,
+    duration: 4000,
+    gravity: "top",
+    position: "right",
+    className: "sonner-toast sonner-" + type,
+  }).showToast();
+}
+
 function formatViewers(n) {
   if (n === 1) return "1 viewer";
   return `${n} viewers`;
