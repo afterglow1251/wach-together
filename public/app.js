@@ -1,6 +1,8 @@
 // ---- State ----
 let ws = null;
-let clientId = "c_" + Math.random().toString(36).slice(2, 10) + "_" + Date.now().toString(36);
+let clientId =
+  sessionStorage.getItem("wt_clientId") ||
+  "c_" + Math.random().toString(36).slice(2, 10) + "_" + Date.now().toString(36);
 let roomCode = null;
 let isHost = false;
 let show = null;
@@ -9,6 +11,9 @@ let currentEpisode = null;
 let hls = null;
 let syncInterval = null;
 let ignoreEvents = false;
+
+// Persist clientId so reconnects use the same identity
+sessionStorage.setItem("wt_clientId", clientId);
 
 // ---- DOM ----
 const $ = (s) => document.querySelector(s);
@@ -48,6 +53,21 @@ const els = {
   qualitySelect: $("#qualitySelect"),
 };
 
+// ---- Session Persistence ----
+function saveSession() {
+  sessionStorage.setItem("wt_clientId", clientId);
+  sessionStorage.setItem("wt_userName", els.userName.value || "Guest");
+}
+
+function clearSession() {
+  roomCode = null;
+  history.pushState({}, "", "/");
+}
+
+function getSavedName() {
+  return sessionStorage.getItem("wt_userName") || els.userName.value || "Guest";
+}
+
 // ---- Screen Management ----
 function showScreen(name) {
   Object.values(screens).forEach((s) => s.classList.remove("active"));
@@ -56,23 +76,51 @@ function showScreen(name) {
 
 // ---- WebSocket ----
 function connectWS(onOpen) {
+  // Close existing connection cleanly to prevent ghost connections
+  if (ws) {
+    const oldWs = ws;
+    oldWs.onclose = null;
+    oldWs.onerror = null;
+    oldWs.onmessage = null;
+    if (oldWs.readyState === WebSocket.OPEN || oldWs.readyState === WebSocket.CONNECTING) {
+      oldWs.close();
+    }
+    ws = null;
+  }
+
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
   ws = new WebSocket(`${proto}//${location.host}/ws`);
 
-  ws.onopen = () => onOpen && onOpen();
+  ws.onopen = () => {
+    console.log("[WS] Connected");
+    if (onOpen) onOpen();
+  };
 
   ws.onmessage = (e) => {
-    const msg = JSON.parse(e.data);
-    handleWSMessage(msg);
+    try {
+      const msg = JSON.parse(e.data);
+      handleWSMessage(msg);
+    } catch (err) {
+      console.error("[WS] Failed to parse message:", err);
+    }
+  };
+
+  ws.onerror = (e) => {
+    console.error("[WS] Error:", e);
   };
 
   ws.onclose = () => {
-    console.log("WS disconnected, reconnecting...");
-    setTimeout(() => connectWS(() => {
-      if (roomCode) {
-        send({ type: "join", roomCode, name: els.userName.value || "Guest" });
-      }
-    }), 2000);
+    console.log("[WS] Disconnected");
+    ws = null;
+    // Only auto-reconnect if we were in a room
+    if (roomCode) {
+      console.log("[WS] Reconnecting in 2s...");
+      setTimeout(() => {
+        connectWS(() => {
+          send({ type: "join", roomCode, name: getSavedName() });
+        });
+      }, 2000);
+    }
   };
 }
 
@@ -83,41 +131,51 @@ function send(msg) {
 }
 
 function handleWSMessage(msg) {
-  switch (msg.type) {
+  console.log("[WS] Received:", msg.type);
 
+  switch (msg.type) {
     case "room-info":
       setupRoom(msg.room);
       break;
 
     case "show-loaded":
       show = msg.show;
+      currentDubIndex = 0;
       renderShow();
       break;
 
     case "episode-changed":
       currentEpisode = msg.episode;
-      loadStream(msg.streamUrl);
+      if (msg.streamUrl) {
+        loadStream(msg.streamUrl);
+      }
       highlightEpisode();
       break;
 
     case "play":
-      ignoreEvents = true;
-      els.video.currentTime = msg.time;
-      els.video.play().catch(() => {});
-      ignoreEvents = false;
+      if (!isHost) {
+        ignoreEvents = true;
+        els.video.currentTime = msg.time;
+        els.video.play().catch(() => {});
+        setTimeout(() => { ignoreEvents = false; }, 200);
+      }
       break;
 
     case "pause":
-      ignoreEvents = true;
-      els.video.currentTime = msg.time;
-      els.video.pause();
-      ignoreEvents = false;
+      if (!isHost) {
+        ignoreEvents = true;
+        els.video.currentTime = msg.time;
+        els.video.pause();
+        setTimeout(() => { ignoreEvents = false; }, 200);
+      }
       break;
 
     case "seek":
-      ignoreEvents = true;
-      els.video.currentTime = msg.time;
-      ignoreEvents = false;
+      if (!isHost) {
+        ignoreEvents = true;
+        els.video.currentTime = msg.time;
+        setTimeout(() => { ignoreEvents = false; }, 200);
+      }
       break;
 
     case "sync":
@@ -126,12 +184,16 @@ function handleWSMessage(msg) {
         if (drift > 1.5) {
           ignoreEvents = true;
           els.video.currentTime = msg.time;
-          ignoreEvents = false;
+          setTimeout(() => { ignoreEvents = false; }, 200);
         }
         if (msg.isPlaying && els.video.paused) {
+          ignoreEvents = true;
           els.video.play().catch(() => {});
+          setTimeout(() => { ignoreEvents = false; }, 200);
         } else if (!msg.isPlaying && !els.video.paused) {
+          ignoreEvents = true;
           els.video.pause();
+          setTimeout(() => { ignoreEvents = false; }, 200);
         }
       }
       break;
@@ -145,6 +207,12 @@ function handleWSMessage(msg) {
       break;
 
     case "error":
+      console.error("[WS] Server error:", msg.message);
+      // If room not found, clear session and go back to landing
+      if (msg.message && msg.message.includes("not found")) {
+        clearSession();
+        showScreen("landing");
+      }
       alert(msg.message);
       break;
   }
@@ -156,6 +224,12 @@ function setupRoom(room) {
   isHost = room.isHost;
   clientId = room.clientId;
 
+  // Persist session for page reload
+  saveSession();
+
+  // Update URL to reflect the room
+  history.pushState({}, "", "/room/" + room.code);
+
   showScreen("room");
 
   els.roomCode.textContent = room.code;
@@ -163,6 +237,7 @@ function setupRoom(room) {
   els.hostBadge.classList.toggle("hidden", !isHost);
   els.urlSection.classList.toggle("hidden", !isHost);
   els.manualSection.classList.toggle("hidden", !isHost);
+
 
   if (room.show) {
     show = room.show;
@@ -174,17 +249,30 @@ function setupRoom(room) {
     loadStream(room.streamUrl);
     highlightEpisode();
 
-    if (room.currentTime > 0) {
-      els.video.currentTime = room.currentTime;
-    }
-    if (room.isPlaying) {
-      els.video.play().catch(() => {});
+    // Seek to current position after stream loads
+    const seekToTime = room.currentTime || 0;
+    const shouldPlay = room.isPlaying;
+
+    if (seekToTime > 0 || shouldPlay) {
+      // Wait for the stream to be ready before seeking
+      const onCanPlay = () => {
+        els.video.removeEventListener("canplay", onCanPlay);
+        if (seekToTime > 0) {
+          els.video.currentTime = seekToTime;
+        }
+        if (shouldPlay) {
+          els.video.play().catch(() => {});
+        }
+      };
+      els.video.addEventListener("canplay", onCanPlay);
     }
   }
 
   // Host sync interval
+  if (syncInterval) clearInterval(syncInterval);
+  syncInterval = null;
+
   if (isHost) {
-    if (syncInterval) clearInterval(syncInterval);
     syncInterval = setInterval(() => {
       if (!els.video.paused && !els.video.ended) {
         send({ type: "sync", time: els.video.currentTime, isPlaying: !els.video.paused });
@@ -315,16 +403,18 @@ function populateQualitySelector(levels) {
 
 // Landing
 els.btnCreate.addEventListener("click", () => {
+  const name = els.userName.value || "Guest";
   connectWS(() => {
-    send({ type: "join", roomCode: "", name: els.userName.value || "Guest" });
+    send({ type: "join", roomCode: "", name });
   });
 });
 
 els.btnJoin.addEventListener("click", () => {
   const code = els.joinCode.value.trim().toUpperCase();
   if (!code) return;
+  const name = els.userName.value || "Guest";
   connectWS(() => {
-    send({ type: "join", roomCode: code, name: els.userName.value || "Guest" });
+    send({ type: "join", roomCode: code, name });
   });
 });
 
@@ -335,8 +425,8 @@ els.joinCode.addEventListener("keydown", (e) => {
 // Copy room code
 els.btnCopyCode.addEventListener("click", () => {
   navigator.clipboard.writeText(roomCode).then(() => {
-    els.btnCopyCode.title = "Скопійовано!";
-    setTimeout(() => (els.btnCopyCode.title = "Копіювати код"), 2000);
+    els.btnCopyCode.title = "Copied!";
+    setTimeout(() => (els.btnCopyCode.title = "Copy code"), 2000);
   });
 });
 
@@ -346,7 +436,7 @@ els.btnParse.addEventListener("click", async () => {
   if (!url) return;
 
   els.btnParse.disabled = true;
-  els.parseStatus.textContent = "Завантаження...";
+  els.parseStatus.textContent = "Loading...";
   els.parseStatus.className = "status-text";
 
   try {
@@ -359,7 +449,7 @@ els.btnParse.addEventListener("click", async () => {
 
     if (data.ok) {
       show = data.show;
-      els.parseStatus.textContent = `Знайдено ${show.dubs.reduce((a, d) => a + d.episodes.length, 0)} серій`;
+      els.parseStatus.textContent = `Found ${show.dubs.reduce((a, d) => a + d.episodes.length, 0)} episodes`;
       els.parseStatus.className = "status-text success";
       renderShow();
       send({ type: "set-show", show });
@@ -368,7 +458,7 @@ els.btnParse.addEventListener("click", async () => {
       els.parseStatus.className = "status-text error";
     }
   } catch (e) {
-    els.parseStatus.textContent = "Помилка з'єднання";
+    els.parseStatus.textContent = "Connection error";
     els.parseStatus.className = "status-text error";
   }
 
@@ -405,7 +495,7 @@ els.episodeList.addEventListener("click", async (e) => {
 
   // Mark as loading
   li.classList.add("loading");
-  li.innerHTML = `<span class="spinner"></span> <span>Завантаження...</span>`;
+  li.innerHTML = `<span class="spinner"></span> <span>Loading...</span>`;
 
   send({ type: "select-episode", episode });
   currentEpisode = episode;
@@ -423,10 +513,10 @@ els.episodeList.addEventListener("click", async (e) => {
       send({ type: "stream-ready", streamUrl: data.streamUrl });
     } else {
       // Show error, render back
-      alert(`Не вдалося отримати відео: ${data.error}\n\nСпробуйте вставити .m3u8 вручну.`);
+      alert(`Failed to get video: ${data.error}\n\nTry pasting .m3u8 manually.`);
     }
   } catch (e) {
-    alert("Помилка з'єднання з сервером");
+    alert("Server connection error");
   }
 
   renderEpisodes();
@@ -439,30 +529,71 @@ els.qualitySelect.addEventListener("change", () => {
   }
 });
 
-// Video events (host only)
+// Video events - host broadcasts to keep everyone in sync
 els.video.addEventListener("play", () => {
-  if (!isHost || ignoreEvents) return;
-  send({ type: "play" });
+  if (ignoreEvents || !isHost) return;
+  send({ type: "play", time: els.video.currentTime });
 });
 
 els.video.addEventListener("pause", () => {
-  if (!isHost || ignoreEvents) return;
-  send({ type: "pause" });
+  if (ignoreEvents || !isHost) return;
+  send({ type: "pause", time: els.video.currentTime });
 });
 
 els.video.addEventListener("seeked", () => {
-  if (!isHost || ignoreEvents) return;
+  if (ignoreEvents || !isHost) return;
   send({ type: "seek", time: els.video.currentTime });
 });
 
-// Cleanup on page unload
-window.addEventListener("beforeunload", () => {
-  send({ type: "disconnect" });
+// Browser back/forward navigation
+window.addEventListener("popstate", () => {
+  const match = location.pathname.match(/^\/room\/([A-Z0-9]{5})$/i);
+  if (match) {
+    const code = match[1].toUpperCase();
+    if (code !== roomCode) {
+      roomCode = code;
+      connectWS(() => {
+        send({ type: "join", roomCode: code, name: getSavedName() });
+      });
+    }
+  } else {
+    // Back to landing
+    roomCode = null;
+    if (ws) {
+      const oldWs = ws;
+      oldWs.onclose = null;
+      oldWs.onerror = null;
+      oldWs.onmessage = null;
+      if (oldWs.readyState === WebSocket.OPEN || oldWs.readyState === WebSocket.CONNECTING) {
+        oldWs.close();
+      }
+      ws = null;
+    }
+    showScreen("landing");
+  }
 });
 
 // ---- Helpers ----
 function formatViewers(n) {
-  if (n === 1) return "1 глядач";
-  if (n >= 2 && n <= 4) return `${n} глядачі`;
-  return `${n} глядачів`;
+  if (n === 1) return "1 viewer";
+  return `${n} viewers`;
 }
+
+// ---- Init from URL ----
+(function initFromUrl() {
+  const savedName = sessionStorage.getItem("wt_userName");
+  if (savedName) els.userName.value = savedName;
+
+  const match = location.pathname.match(/^\/room\/([A-Z0-9]{5})$/i);
+  if (match) {
+    const code = match[1].toUpperCase();
+    roomCode = code;
+    // Show room screen immediately to avoid landing flash
+    showScreen("room");
+    connectWS(() => {
+      send({ type: "join", roomCode: code, name: getSavedName() });
+    });
+  } else {
+    showScreen("landing");
+  }
+})();
