@@ -82,6 +82,7 @@ export function getRoomInfo(room: Room, clientId: string): RoomInfo {
     clientId,
     isHost: room.hostId === clientId,
     clientCount: room.clients.size,
+    viewers: Array.from(room.clients.values()).map((c) => c.name),
     show: room.show,
     sourceUrl: room.sourceUrl,
     currentEpisode: room.currentEpisode,

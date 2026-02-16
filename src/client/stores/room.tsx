@@ -10,6 +10,7 @@ export interface ChatMsg {
   text: string;
   isMe: boolean;
   id: number;
+  time: number;
 }
 
 export interface RoomState {
@@ -17,6 +18,7 @@ export interface RoomState {
   roomCode: string | null;
   isHost: boolean;
   clientCount: number;
+  viewers: string[];
   show: ParsedShow | null;
   sourceUrl: string | null;
   currentEpisode: Episode | null;
@@ -60,6 +62,7 @@ export const RoomProvider: ParentComponent<{ username: Accessor<string> }> = (pr
     roomCode: null,
     isHost: false,
     clientCount: 0,
+    viewers: [],
     show: null,
     sourceUrl: null,
     currentEpisode: null,
@@ -103,15 +106,15 @@ export const RoomProvider: ParentComponent<{ username: Accessor<string> }> = (pr
         setState({ currentTime: msg.time, isPlaying: msg.isPlaying });
         break;
       case "user-joined":
-        setState({ clientCount: msg.count });
+        setState({ clientCount: msg.count, viewers: msg.viewers });
         break;
       case "user-left":
-        setState({ clientCount: msg.count });
+        setState({ clientCount: msg.count, viewers: msg.viewers });
         break;
       case "chat": {
         const isMe = msg.name === props.username();
         setState(produce(s => {
-          s.chat.push({ name: msg.name, text: msg.text, isMe, id: ++chatIdCounter });
+          s.chat.push({ name: msg.name, text: msg.text, isMe, id: ++chatIdCounter, time: msg.time });
         }));
         if (!isMe) playNotificationBeep();
         break;
@@ -143,6 +146,7 @@ export const RoomProvider: ParentComponent<{ username: Accessor<string> }> = (pr
       roomCode: room.code,
       isHost: room.isHost,
       clientCount: room.clientCount,
+      viewers: room.viewers,
       show: room.show,
       sourceUrl: room.sourceUrl,
       currentEpisode: room.currentEpisode,
@@ -179,7 +183,7 @@ export const RoomProvider: ParentComponent<{ username: Accessor<string> }> = (pr
       ws.send({ type: "disconnect", clientId: ws.getClientId() });
       ws.disconnect();
       setState({
-        connected: false, roomCode: null, isHost: false, clientCount: 0,
+        connected: false, roomCode: null, isHost: false, clientCount: 0, viewers: [],
         show: null, sourceUrl: null, currentEpisode: null, streamUrl: null,
         isPlaying: false, currentTime: 0, chat: [], typingUser: null,
       });

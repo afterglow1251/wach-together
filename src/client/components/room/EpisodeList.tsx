@@ -22,7 +22,7 @@ export default function EpisodeList(props: {
   return (
     <div class="px-5 py-4 sidebar-divider relative z-1">
       <label class="block text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Episodes ♥</label>
-      <ul class="list-none flex flex-col gap-0.5 max-h-[50vh] overflow-y-auto">
+      <ul class="list-none flex flex-col gap-0.5 max-h-[calc(45vh-20px)] overflow-y-auto">
         <For each={props.episodes}>
           {(ep, i) => {
             const isActive = () => props.currentId === ep.id;

@@ -22,6 +22,7 @@ export interface RoomInfo {
   clientId: string;
   isHost: boolean;
   clientCount: number;
+  viewers: string[];
   show: ParsedShow | null;
   sourceUrl: string | null;
   currentEpisode: Episode | null;

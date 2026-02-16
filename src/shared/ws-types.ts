@@ -25,9 +25,9 @@ export type WSServerMessage =
   | { type: "pause"; time: number }
   | { type: "seek"; time: number }
   | { type: "sync"; time: number; isPlaying: boolean }
-  | { type: "user-joined"; name: string; count: number }
-  | { type: "user-left"; name: string; count: number }
-  | { type: "chat"; name: string; text: string }
+  | { type: "user-joined"; name: string; count: number; viewers: string[] }
+  | { type: "user-left"; name: string; count: number; viewers: string[] }
+  | { type: "chat"; name: string; text: string; time: number }
   | { type: "reaction"; name: string; emoji: string }
   | { type: "typing"; name: string }
   | { type: "error"; message: string };

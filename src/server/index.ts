@@ -51,6 +51,7 @@ function cleanupClient(cid: string) {
           type: "user-left",
           name: state.name,
           count: room.clients.size,
+          viewers: Array.from(room.clients.values()).map((c) => c.name),
         });
       }
     }
@@ -467,6 +468,7 @@ new Elysia()
                   type: "user-left",
                   name: existingState.name,
                   count: oldRoom.clients.size,
+                  viewers: Array.from(oldRoom.clients.values()).map((c) => c.name),
                 });
               }
             }
@@ -505,9 +507,10 @@ new Elysia()
           console.log(`[WS] ${cid} joined room ${room.code}, isHost=${roomInfo.isHost}, clients=${room.clients.size}, hasStream=${!!roomInfo.streamUrl}`);
           ws.send(JSON.stringify({ type: "room-info", room: roomInfo }));
 
+          const viewers = Array.from(room.clients.values()).map((c) => c.name);
           broadcastToRoom(
             room,
-            { type: "user-joined", name, count: room.clients.size },
+            { type: "user-joined", name, count: room.clients.size, viewers },
             cid
           );
           break;
@@ -637,7 +640,7 @@ new Elysia()
           const room = getRoom(state.roomCode);
           if (!room) return;
 
-          broadcastToRoom(room, { type: "chat", name: state.name, text: msg.text });
+          broadcastToRoom(room, { type: "chat", name: state.name, text: msg.text, time: Date.now() });
           break;
         }
 
@@ -678,6 +681,7 @@ new Elysia()
               type: "user-left",
               name: state.name,
               count: room.clients.size,
+              viewers: Array.from(room.clients.values()).map((c) => c.name),
             });
           }
           wsState.delete(cid);

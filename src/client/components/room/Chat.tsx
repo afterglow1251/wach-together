@@ -24,7 +24,7 @@ export default function Chat(props: {
   }
 
   return (
-    <div class="flex-1 flex flex-col min-h-0 px-5 py-4 pb-3 relative z-1">
+    <div class="flex-1 flex flex-col min-h-[160px] px-5 py-4 pb-3 relative z-1">
       <label class="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
         Chat <span style={{ "-webkit-text-fill-color": "var(--color-accent)" }}>♥</span>
       </label>
@@ -44,6 +44,9 @@ export default function Chat(props: {
                 <span class="text-[11px] font-semibold opacity-70 block mb-0.5">{msg.name}</span>
               </Show>
               <span>{msg.text}</span>
+              <span class={`text-[9px] block text-right mt-0.5 ${msg.isMe ? "opacity-60" : "opacity-40"}`}>
+                {new Date(msg.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </span>
             </div>
           )}
         </For>

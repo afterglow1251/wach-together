@@ -133,7 +133,7 @@ export default function RoomPage() {
   return (
     <div class="flex h-screen w-screen max-md:flex-col">
       {/* Sidebar */}
-      <aside class="w-80 min-w-80 bg-sidebar-gradient border-r border-border flex flex-col overflow-y-auto relative max-md:w-full max-md:min-w-0 max-md:max-h-[40vh] max-md:border-r-0 max-md:border-b max-md:border-border max-md:order-2">
+      <aside class="w-80 min-w-80 bg-sidebar-gradient border-r border-border flex flex-col overflow-hidden relative max-md:w-full max-md:min-w-0 max-md:max-h-[40vh] max-md:border-r-0 max-md:border-b max-md:border-border max-md:order-2">
         {/* Sidebar floating hearts */}
         <div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
           {sidebarHearts.map((h) => (
@@ -148,7 +148,7 @@ export default function RoomPage() {
           ))}
         </div>
 
-        <RoomHeader code={room.state.roomCode ?? "-----"} clientCount={room.state.clientCount} isHost={room.state.isHost} />
+        <RoomHeader code={room.state.roomCode ?? "-----"} clientCount={room.state.clientCount} viewers={room.state.viewers} isHost={room.state.isHost} />
 
         <Show when={room.state.isHost}>
           <UrlInput initialUrl={room.state.sourceUrl ?? ""} onLoad={handleLoadUrl} />
