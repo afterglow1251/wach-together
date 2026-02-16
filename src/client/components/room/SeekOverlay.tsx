@@ -27,7 +27,6 @@ export default function SeekOverlay() {
     timer = setTimeout(() => {
       setDir(null);
       lastDir = null;
-      setCount(0);
     }, 700);
   }
 
