@@ -397,6 +397,26 @@ const app = new Elysia()
           break;
         }
 
+        case "reaction": {
+          const state = wsState.get(cid);
+          if (!state?.roomCode) return;
+          const room = getRoom(state.roomCode);
+          if (!room) return;
+
+          broadcastToRoom(room, { type: "reaction", name: state.name, emoji: msg.emoji });
+          break;
+        }
+
+        case "typing": {
+          const state = wsState.get(cid);
+          if (!state?.roomCode) return;
+          const room = getRoom(state.roomCode);
+          if (!room) return;
+
+          broadcastToRoom(room, { type: "typing", name: state.name }, cid);
+          break;
+        }
+
         case "disconnect": {
           // Cancel any pending grace period
           const pendingTimer = pendingDisconnects.get(cid);

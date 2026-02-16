@@ -9,6 +9,7 @@ let show = null;
 let currentDubIndex = 0;
 let currentEpisode = null;
 let hls = null;
+let player = null;
 let syncInterval = null;
 let ignoreEvents = false;
 
@@ -44,7 +45,47 @@ const els = {
   episodeList: $("#episodeList"),
   video: $("#video"),
   playerOverlay: $("#playerOverlay"),
+  chatMessages: $("#chatMessages"),
+  chatInput: $("#chatInput"),
+  btnSendChat: $("#btnSendChat"),
+  reactionsBar: $("#reactionsBar"),
+  reactionsContainer: $("#reactionsContainer"),
+  fsChat: $("#fsChat"),
+  fsChatMessages: $("#fsChatMessages"),
+  fsChatInput: $("#fsChatInput"),
+  fsChatInputField: $("#fsChatInputField"),
+  btnFsChat: $("#btnFsChat"),
 };
+
+// ---- Plyr Init ----
+player = new Plyr(els.video, {
+  controls: ['play-large', 'play', 'progress', 'current-time', 'duration', 'mute', 'volume', 'fullscreen'],
+  keyboard: { focused: true, global: true },
+  tooltips: { controls: true, seek: true },
+  seekTime: 5,
+  clickToPlay: false,
+  fullscreen: { iosNative: true, container: ".player-wrapper" },
+});
+
+// Custom click/dblclick — single click = play/pause, double click = fullscreen only
+let clickTimer = null;
+const videoWrapper = $(".plyr__video-wrapper") || $(".plyr");
+if (videoWrapper) {
+  videoWrapper.addEventListener("click", (e) => {
+    if (e.target.closest(".plyr__controls") || e.target.closest("button")) return;
+    if (clickTimer) {
+      clearTimeout(clickTimer);
+      clickTimer = null;
+      player.fullscreen.toggle();
+    } else {
+      clickTimer = setTimeout(() => {
+        clickTimer = null;
+        player.togglePlay();
+      }, 250);
+    }
+  });
+}
+
 
 // ---- Session Persistence ----
 function saveSession() {
@@ -199,6 +240,20 @@ function handleWSMessage(msg) {
       els.userCount.textContent = formatViewers(msg.count);
       break;
 
+    case "chat":
+      appendChatMessage(msg.name, msg.text);
+      showFsChatMessage(msg.name, msg.text);
+      playNotificationSound(msg.name);
+      break;
+
+    case "reaction":
+      spawnFloatingEmoji(msg.emoji);
+      break;
+
+    case "typing":
+      showTypingIndicator(msg.name);
+      break;
+
     case "error":
       console.error("[WS] Server error:", msg.message);
       // If room not found, clear session and go back to landing
@@ -332,6 +387,7 @@ function loadStream(url) {
   const proxiedUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
 
   els.playerOverlay.classList.add("hidden");
+  document.querySelector(".player-wrapper").classList.remove("no-source");
 
   if (hls) {
     hls.destroy();
@@ -464,7 +520,7 @@ els.episodeList.addEventListener("click", async (e) => {
 
   // Mark as loading
   li.classList.add("loading");
-  li.innerHTML = `<span class="spinner"></span> <span>Loading...</span>`;
+  li.innerHTML = `<span class="spinner"></span>`;
 
   send({ type: "select-episode", episode });
   currentEpisode = episode;
@@ -507,18 +563,201 @@ els.video.addEventListener("seeked", () => {
   send({ type: "seek", time: els.video.currentTime });
 });
 
-// Spacebar toggle play/pause when nothing is focused
-document.addEventListener("keydown", (e) => {
-  if (e.code !== "Space") return;
-  const tag = document.activeElement.tagName;
-  if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || tag === "BUTTON") return;
-  if (!screens.room.classList.contains("active")) return;
-  e.preventDefault();
-  if (els.video.paused) {
-    els.video.play().catch(() => {});
+// Seek indicator (YouTube-style with hearts)
+const seekBackward = $("#seekBackward");
+const seekForward = $("#seekForward");
+const seekState = { dir: null, count: 0, timer: null };
+
+function showSeek(dir) {
+  const el = dir === "forward" ? seekForward : seekBackward;
+  const other = dir === "forward" ? seekBackward : seekForward;
+
+  // Hide other direction
+  other.classList.remove("active");
+
+  clearTimeout(seekState.timer);
+
+  if (seekState.dir === dir) {
+    seekState.count += 5;
   } else {
-    els.video.pause();
+    seekState.dir = dir;
+    seekState.count = 5;
   }
+
+  // Update text
+  el.querySelector(".seek-text").textContent = seekState.count + " seconds";
+
+  // Restart ripple animation
+  const ripple = el.querySelector(".seek-ripple");
+  ripple.style.animation = "none";
+  void ripple.offsetWidth;
+  ripple.style.animation = "";
+
+  el.classList.add("active");
+
+  // Auto-hide
+  seekState.timer = setTimeout(() => {
+    el.classList.remove("active");
+    seekState.dir = null;
+    seekState.count = 0;
+    seekState.timer = null;
+  }, 700);
+}
+
+document.addEventListener("keydown", (e) => {
+  if (!screens.room.classList.contains("active")) return;
+  const focused = document.activeElement;
+  const inPlyr = focused.closest(".plyr");
+  if (!inPlyr && ["INPUT", "SELECT", "TEXTAREA"].includes(focused.tagName)) return;
+  if (e.code === "ArrowLeft") showSeek("backward");
+  if (e.code === "ArrowRight") showSeek("forward");
+});
+
+// ---- Chat ----
+function appendChatMessage(name, text) {
+  const myName = els.userName.value || "Guest";
+  const isMe = name === myName;
+
+  const msg = document.createElement("div");
+  msg.className = "chat-msg " + (isMe ? "me" : "other");
+
+  const nameEl = document.createElement("span");
+  nameEl.className = "chat-name";
+  nameEl.textContent = name;
+
+  const textEl = document.createElement("span");
+  textEl.textContent = text;
+
+  msg.appendChild(nameEl);
+  msg.appendChild(textEl);
+  els.chatMessages.appendChild(msg);
+  els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
+}
+
+function sendChat() {
+  const text = els.chatInput.value.trim();
+  if (!text) return;
+  send({ type: "chat", text });
+  els.chatInput.value = "";
+}
+
+els.btnSendChat.addEventListener("click", sendChat);
+els.chatInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") sendChat();
+});
+
+// ---- Typing Indicator ----
+let typingTimer = null;
+let typingShown = false;
+
+els.chatInput.addEventListener("input", () => {
+  send({ type: "typing" });
+});
+
+function showTypingIndicator(name) {
+  let indicator = els.chatMessages.querySelector(".typing-indicator");
+  if (!indicator) {
+    indicator = document.createElement("div");
+    indicator.className = "typing-indicator";
+    els.chatMessages.appendChild(indicator);
+  }
+  indicator.textContent = name + " is writing something sweet...";
+  els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
+
+  clearTimeout(typingTimer);
+  typingTimer = setTimeout(() => {
+    indicator.remove();
+  }, 2000);
+}
+
+// ---- Emoji Reactions ----
+els.reactionsBar.addEventListener("click", (e) => {
+  const btn = e.target.closest(".reaction-btn");
+  if (!btn) return;
+  send({ type: "reaction", emoji: btn.dataset.emoji });
+});
+
+function spawnFloatingEmoji(emoji) {
+  const container = els.reactionsContainer;
+  const el = document.createElement("div");
+  const e = emoji || "♥";
+  el.className = "floating-heart" + (e === "♥" ? " is-symbol" : "");
+  el.textContent = e;
+  el.style.left = (40 + Math.random() * 50) + "%";
+  el.style.bottom = "80px";
+  container.appendChild(el);
+  el.addEventListener("animationend", () => el.remove());
+}
+
+// ---- Notification Sound ----
+const notifCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playNotificationSound(name) {
+  const myName = els.userName.value || "Guest";
+  if (name === myName) return; // Don't play for own messages
+
+  const osc = notifCtx.createOscillator();
+  const gain = notifCtx.createGain();
+  osc.connect(gain);
+  gain.connect(notifCtx.destination);
+
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(880, notifCtx.currentTime);
+  osc.frequency.setValueAtTime(1100, notifCtx.currentTime + 0.08);
+  gain.gain.setValueAtTime(0.08, notifCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, notifCtx.currentTime + 0.25);
+
+  osc.start(notifCtx.currentTime);
+  osc.stop(notifCtx.currentTime + 0.25);
+}
+
+// ---- Fullscreen Chat ----
+function showFsChatMessage(name, text) {
+  const msg = document.createElement("div");
+  msg.className = "fs-chat-msg";
+  msg.innerHTML = '<span class="fs-chat-name">' + escapeHtml(name) + '</span>' + escapeHtml(text);
+  els.fsChatMessages.appendChild(msg);
+
+  // Remove after animation ends (4.4s = 4s delay + 0.4s fadeout)
+  setTimeout(() => msg.remove(), 4400);
+
+  // Keep max 5 messages
+  while (els.fsChatMessages.children.length > 5) {
+    els.fsChatMessages.firstChild.remove();
+  }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+let fsChatOpen = false;
+els.btnFsChat.addEventListener("click", () => {
+  fsChatOpen = !fsChatOpen;
+  els.fsChatInput.classList.toggle("hidden", !fsChatOpen);
+  els.fsChat.classList.toggle("visible", true);
+  if (fsChatOpen) els.fsChatInputField.focus();
+});
+
+els.fsChatInputField.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    const text = els.fsChatInputField.value.trim();
+    if (!text) return;
+    send({ type: "chat", text });
+    els.fsChatInputField.value = "";
+  }
+  if (e.key === "Escape") {
+    fsChatOpen = false;
+    els.fsChatInput.classList.add("hidden");
+    els.fsChatInputField.blur();
+  }
+  e.stopPropagation(); // Don't trigger player shortcuts
+});
+
+els.fsChatInputField.addEventListener("input", () => {
+  send({ type: "typing" });
 });
 
 // Browser back/forward navigation
@@ -551,8 +790,8 @@ window.addEventListener("popstate", () => {
 
 // ---- Helpers ----
 const TOAST_ICONS = {
-  success: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>',
-  error: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>',
+  success: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
+  error: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>',
 };
 
 function toast(text, type = "success") {

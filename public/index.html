@@ -5,10 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90' fill='%23e84393'>♥</text></svg>">
   <title>Watch ♥ Together</title>
+  <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css">
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+  <script src="https://cdn.plyr.io/3.7.8/plyr.js"></script>
 </head>
 <body>
   <!-- Landing Screen -->
@@ -55,6 +57,13 @@
     <div class="room-layout">
       <!-- Sidebar -->
       <aside id="sidebar" class="sidebar">
+        <div class="sidebar-hearts">
+          <span style="left:10%;animation-duration:14s;animation-delay:0s">♥</span>
+          <span style="left:30%;animation-duration:18s;animation-delay:4s">♥</span>
+          <span style="left:55%;animation-duration:12s;animation-delay:8s">♥</span>
+          <span style="left:75%;animation-duration:16s;animation-delay:2s">♥</span>
+          <span style="left:90%;animation-duration:20s;animation-delay:6s">♥</span>
+        </div>
         <div class="sidebar-header">
           <div class="room-code-block">
             <span class="label">Room</span>
@@ -80,7 +89,6 @@
           </div>
         </div>
 
-
         <!-- Show Info -->
         <div id="showInfo" class="sidebar-section hidden">
           <h3 id="showTitle" class="show-title"></h3>
@@ -88,25 +96,85 @@
 
         <!-- Dub Selector -->
         <div id="dubSection" class="sidebar-section hidden">
-          <label>Dub</label>
+          <label>Dub ♥</label>
           <select id="dubSelect" class="select"></select>
         </div>
 
         <!-- Episode List -->
         <div id="episodeSection" class="sidebar-section hidden">
           <div class="input-group">
-            <label>Episodes</label>
+            <label>Episodes ♥</label>
           </div>
           <ul id="episodeList" class="episode-list"></ul>
+        </div>
+
+        <!-- Chat -->
+        <div class="sidebar-section chat-section">
+          <label>Chat <span class="title-heart">♥</span></label>
+          <div id="chatMessages" class="chat-messages"></div>
+          <div class="chat-input-row">
+            <input type="text" id="chatInput" placeholder="Write something sweet..." maxlength="200">
+            <button id="btnSendChat" class="btn btn-primary btn-sm">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
+            </button>
+          </div>
         </div>
       </aside>
 
       <!-- Main Content -->
       <main class="main-content">
-        <div class="player-wrapper">
-          <video id="video" playsinline controls></video>
+        <div class="player-wrapper no-source">
+          <video id="video" playsinline></video>
+          <div class="seek-overlay seek-overlay--left" id="seekBackward">
+            <div class="seek-ripple"></div>
+            <div class="seek-content">
+              <div class="seek-hearts">
+                <svg class="seek-heart seek-heart--1" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                <svg class="seek-heart seek-heart--2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                <svg class="seek-heart seek-heart--3" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+              </div>
+              <span class="seek-text">5 seconds</span>
+            </div>
+          </div>
+          <div class="seek-overlay seek-overlay--right" id="seekForward">
+            <div class="seek-ripple"></div>
+            <div class="seek-content">
+              <div class="seek-hearts">
+                <svg class="seek-heart seek-heart--1" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                <svg class="seek-heart seek-heart--2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                <svg class="seek-heart seek-heart--3" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+              </div>
+              <span class="seek-text">5 seconds</span>
+            </div>
+          </div>
+          <!-- Emoji reactions -->
+          <div class="reactions-bar" id="reactionsBar">
+            <div class="reactions-extras">
+              <button class="reaction-btn reaction-extra" data-emoji="😂">😂</button>
+              <button class="reaction-btn reaction-extra" data-emoji="👀">👀</button>
+              <button class="reaction-btn reaction-extra" data-emoji="😱">😱</button>
+            </div>
+            <button class="reaction-btn reaction-main" data-emoji="♥">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            </button>
+          </div>
+          <!-- Floating reactions container -->
+          <div id="reactionsContainer" class="reactions-container"></div>
+          <!-- Fullscreen chat overlay -->
+          <div id="fsChat" class="fs-chat">
+            <div id="fsChatMessages" class="fs-chat-messages"></div>
+            <div id="fsChatInput" class="fs-chat-input hidden">
+              <input type="text" id="fsChatInputField" placeholder="Write something sweet..." maxlength="200">
+            </div>
+          </div>
+          <button id="btnFsChat" class="fs-chat-toggle" title="Chat">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
+          </button>
           <div id="playerOverlay" class="player-overlay">
-            <p>Waiting for video...</p>
+            <div class="overlay-content">
+              <span class="overlay-heart">♥</span>
+              <p>Pick something to watch together</p>
+            </div>
           </div>
         </div>
 
