@@ -1,4 +1,4 @@
-import type { DubGroup, Episode, ParsedShow } from "./types";
+import type { DubGroup, Episode, ParsedShow } from "../shared/types";
 
 const HEADERS = {
   "User-Agent":
@@ -14,26 +14,20 @@ export async function parseUakinoPage(url: string): Promise<ParsedShow> {
 
   const html = await resp.text();
 
-  // Extract title — h1 may contain nested spans like <h1><span class="solototle">Title</span></h1>
   const titleMatch = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
   const title = titleMatch?.[1]?.replace(/<[^>]+>/g, "").trim() || "Unknown";
 
-  // Extract poster
   const posterMatch = html.match(/class="(?:film-poster|fposter)"[^>]*>[\s\S]*?<img[^>]+src="([^"]+)"/);
   const poster = posterMatch?.[1] || "";
 
-  // Extract news_id and xfield from the AJAX playlist loader div
-  // <div class="playlists-ajax" data-xfname="playlist" data-news_id="5613">
   const ajaxMatch = html.match(/class="playlists-ajax"[^>]*data-xfname="([^"]+)"[^>]*data-news_id="(\d+)"/);
   if (!ajaxMatch) {
-    // No AJAX playlist — try inline data-file or iframe fallback
     return parseInlineFallback(html, title, poster);
   }
 
   const xfield = ajaxMatch[1];
   const newsId = ajaxMatch[2];
 
-  // Fetch playlist via the same AJAX endpoint UaKino uses
   const playlistResp = await fetch("https://uakino.best/engine/ajax/playlists.php", {
     method: "POST",
     headers: {
@@ -54,7 +48,6 @@ export async function parseUakinoPage(url: string): Promise<ParsedShow> {
 
   const playlistHtml = playlistData.response as string;
 
-  // Parse dub names from .playlists-lists
   const dubNames: string[] = [];
   const dubNamesBlock = playlistHtml.match(/class="playlists-lists"[^>]*>([\s\S]*?)<\/div>/);
   if (dubNamesBlock) {
@@ -65,7 +58,6 @@ export async function parseUakinoPage(url: string): Promise<ParsedShow> {
     }
   }
 
-  // Parse episodes from .playlists-videos
   const dubs: DubGroup[] = [];
   const videosBlock = playlistHtml.match(/class="playlists-videos"[^>]*>([\s\S]*?)$/);
   if (!videosBlock) throw new Error("Could not find episodes in playlist response");
@@ -78,7 +70,6 @@ export async function parseUakinoPage(url: string): Promise<ParsedShow> {
     const blockHtml = blockMatch[1];
     const episodes: Episode[] = [];
 
-    // Extract voice name from data-voice attribute if available, otherwise use dubNames
     const liRegex = /<li[^>]*data-file="([^"]+)"[^>]*(?:data-voice="([^"]+)")?[^>]*>([\s\S]*?)<\/li>/g;
     let liMatch;
     let epIndex = 0;
@@ -118,7 +109,6 @@ export async function parseUakinoPage(url: string): Promise<ParsedShow> {
 function parseInlineFallback(html: string, title: string, poster: string): ParsedShow {
   const dubs: DubGroup[] = [];
 
-  // Try inline data-file attributes
   const allDataFileRegex = /data-file="([^"]+)"/g;
   const episodes: Episode[] = [];
   let m;
@@ -141,7 +131,6 @@ function parseInlineFallback(html: string, title: string, poster: string): Parse
     return { title, poster, dubs };
   }
 
-  // Try iframe (single movie)
   const iframeMatch = html.match(/<iframe[^>]+src="([^"]*ashdi[^"]*)"/);
   if (iframeMatch) {
     let fileUrl = iframeMatch[1].trim();
@@ -164,11 +153,9 @@ export async function extractStreamUrl(playerUrl: string): Promise<string> {
 
   const html = await resp.text();
 
-  // Method 1: Look for .m3u8 directly in page source
   const m3u8Match = html.match(/https?:\/\/[^\s"']+\.m3u8[^\s"']*/);
   if (m3u8Match) return m3u8Match[0];
 
-  // Method 2: Look for file parameter in player JS
   const fileMatch =
     html.match(/file\s*[:=]\s*["']([^"']+)["']/) ||
     html.match(/source\s*[:=]\s*["']([^"']+)["']/);
@@ -177,18 +164,15 @@ export async function extractStreamUrl(playerUrl: string): Promise<string> {
     const val = fileMatch[1];
     if (val.includes(".m3u8")) return val;
 
-    // Could be base64 encoded
     try {
       const decoded = atob(val);
       if (decoded.includes(".m3u8") || decoded.startsWith("http")) return decoded;
     } catch {}
 
-    // Try as get2.fun param
     const streamUrl = await tryGet2FunApi(val);
     if (streamUrl) return streamUrl;
   }
 
-  // Method 3: Extract hash/param for get2.fun API
   const hashMatch =
     html.match(/var\s+file_hash\s*=\s*["']([^"']+)["']/) ||
     html.match(/hash\s*[:=]\s*["']([^"']+)["']/) ||
@@ -199,7 +183,6 @@ export async function extractStreamUrl(playerUrl: string): Promise<string> {
     if (streamUrl) return streamUrl;
   }
 
-  // Method 4: Try all base64-looking strings as get2.fun params
   const b64Matches = html.match(/["']([A-Za-z0-9+/=]{20,})["']/g);
   if (b64Matches) {
     for (const match of b64Matches.slice(0, 5)) {
@@ -230,13 +213,11 @@ async function tryGet2FunApi(param: string): Promise<string | null> {
     const text = await resp.text();
     if (!text || text.length < 10) return null;
 
-    // Double base64 decode
     try {
       const decoded = atob(atob(text.trim()));
       if (decoded.includes(".m3u8") || decoded.startsWith("http")) return decoded;
     } catch {}
 
-    // Single decode
     try {
       const decoded = atob(text.trim());
       if (decoded.includes(".m3u8") || decoded.startsWith("http")) return decoded;

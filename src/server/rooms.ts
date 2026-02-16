@@ -1,4 +1,5 @@
-import type { Room, RoomClient, RoomInfo } from "./types";
+import type { Room, RoomClient } from "./types";
+import type { RoomInfo } from "../shared/types";
 
 const rooms = new Map<string, Room>();
 
@@ -50,14 +51,12 @@ export function addClient(room: Room, client: RoomClient): void {
 export function removeClient(room: Room, clientId: string): void {
   room.clients.delete(clientId);
 
-  // Transfer host if host left
   if (room.hostId === clientId && room.clients.size > 0) {
     const newHost = room.clients.values().next().value!;
     room.hostId = newHost.id;
     newHost.isHost = true;
   }
 
-  // Clean up empty rooms
   if (room.clients.size === 0) {
     rooms.delete(room.code);
   }

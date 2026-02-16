@@ -7,13 +7,16 @@ import {
   removeClient,
   broadcastToRoom,
   getRoomInfo,
-  generateClientId,
 } from "./rooms";
-import type { Room, RoomClient, WSMessage } from "./types";
+import type { Room, RoomClient } from "./types";
 import { join } from "path";
+import { db } from "./db";
+import { users, watchedEpisodes, library } from "./db/schema";
+import { eq, and, sql } from "drizzle-orm";
+import type { LibraryStatus } from "../shared/types";
 
 const PORT = process.env.PORT || 3000;
-const PUBLIC_DIR = join(import.meta.dir, "..", "public");
+const CLIENT_DIR = join(import.meta.dir, "..", "..", "dist", "client");
 
 const MIME_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -55,7 +58,7 @@ function cleanupClient(cid: string) {
   wsState.delete(cid);
 }
 
-const app = new Elysia()
+new Elysia()
 
   // Parse uakino URL
   .post(
@@ -95,6 +98,257 @@ const app = new Elysia()
     { body: t.Object({ url: t.String() }) }
   )
 
+  // Auth — auto register/login
+  .post(
+    "/api/auth",
+    async ({ body }) => {
+      try {
+        const { username, password } = body;
+        const existing = await db
+          .select()
+          .from(users)
+          .where(eq(users.username, username))
+          .limit(1);
+
+        if (existing.length > 0) {
+          const valid = await Bun.password.verify(password, existing[0].passwordHash);
+          if (!valid) return { ok: false, error: "Wrong password" };
+          return { ok: true, user: { id: existing[0].id, username: existing[0].username } };
+        }
+
+        const hash = await Bun.password.hash(password);
+        const [newUser] = await db
+          .insert(users)
+          .values({ username, passwordHash: hash })
+          .returning({ id: users.id, username: users.username });
+        return { ok: true, user: newUser, created: true };
+      } catch (e: any) {
+        console.error("[Auth] Error:", e);
+        return { ok: false, error: "Something went wrong, try again" };
+      }
+    },
+    { body: t.Object({ username: t.String(), password: t.String() }) }
+  )
+
+  // Get watched episodes
+  .get("/api/watched", async ({ query }) => {
+    const userId = parseInt(query.userId as string);
+    const sourceUrl = query.sourceUrl as string;
+    if (!userId || !sourceUrl) return { ok: false, error: "Missing params" };
+
+    const rows = await db
+      .select({ episodeId: watchedEpisodes.episodeId })
+      .from(watchedEpisodes)
+      .where(and(eq(watchedEpisodes.userId, userId), eq(watchedEpisodes.sourceUrl, sourceUrl)));
+
+    return { ok: true, episodeIds: rows.map((r) => r.episodeId) };
+  })
+
+  // Mark episode as watched
+  .post(
+    "/api/watched",
+    async ({ body }) => {
+      try {
+        await db
+          .insert(watchedEpisodes)
+          .values({ userId: body.userId, sourceUrl: body.sourceUrl, episodeId: body.episodeId })
+          .onConflictDoNothing();
+        return { ok: true };
+      } catch (e: any) {
+        return { ok: false, error: e.message };
+      }
+    },
+    {
+      body: t.Object({
+        userId: t.Number(),
+        sourceUrl: t.String(),
+        episodeId: t.String(),
+      }),
+    }
+  )
+
+  // Unmark episode
+  .delete(
+    "/api/watched",
+    async ({ body }) => {
+      try {
+        await db
+          .delete(watchedEpisodes)
+          .where(
+            and(
+              eq(watchedEpisodes.userId, body.userId),
+              eq(watchedEpisodes.sourceUrl, body.sourceUrl),
+              eq(watchedEpisodes.episodeId, body.episodeId)
+            )
+          );
+        return { ok: true };
+      } catch (e: any) {
+        return { ok: false, error: e.message };
+      }
+    },
+    {
+      body: t.Object({
+        userId: t.Number(),
+        sourceUrl: t.String(),
+        episodeId: t.String(),
+      }),
+    }
+  )
+
+  // Get user's library
+  .get("/api/library", async ({ query }) => {
+    const userId = parseInt(query.userId as string);
+    if (!userId) return { ok: false, error: "Missing userId" };
+
+    const items = await db
+      .select()
+      .from(library)
+      .where(eq(library.userId, userId))
+      .orderBy(library.addedAt);
+
+    const watchedCounts = await db
+      .select({
+        sourceUrl: watchedEpisodes.sourceUrl,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(watchedEpisodes)
+      .where(eq(watchedEpisodes.userId, userId))
+      .groupBy(watchedEpisodes.sourceUrl);
+
+    const countMap = new Map(watchedCounts.map((r) => [r.sourceUrl, r.count]));
+
+    return {
+      ok: true,
+      items: items.map((item) => ({
+        ...item,
+        watchedCount: countMap.get(item.sourceUrl) || 0,
+      })),
+    };
+  })
+
+  // Add show to library
+  .post(
+    "/api/library",
+    async ({ body }) => {
+      try {
+        const { userId, sourceUrl, status } = body;
+
+        const show = await Promise.race([
+          parseUakinoPage(sourceUrl),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("Timed out loading page (30s)")), 30000)
+          ),
+        ]);
+
+        const totalEpisodes = Math.max(...show.dubs.map((d) => d.episodes.length), 0);
+
+        const [item] = await db
+          .insert(library)
+          .values({
+            userId,
+            sourceUrl,
+            title: show.title,
+            poster: show.poster,
+            totalEpisodes,
+            status: (status || "plan_to_watch") as LibraryStatus,
+          })
+          .onConflictDoUpdate({
+            target: [library.userId, library.sourceUrl],
+            set: {
+              title: show.title,
+              poster: show.poster,
+              totalEpisodes,
+              ...(status ? { status: status as LibraryStatus } : {}),
+            },
+          })
+          .returning();
+
+        return { ok: true, item };
+      } catch (e: any) {
+        return { ok: false, error: e.message };
+      }
+    },
+    {
+      body: t.Object({
+        userId: t.Number(),
+        sourceUrl: t.String(),
+        status: t.Optional(t.String()),
+      }),
+    }
+  )
+
+  // Update library item status
+  .patch(
+    "/api/library",
+    async ({ body }) => {
+      try {
+        const [updated] = await db
+          .update(library)
+          .set({ status: body.status as typeof library.$inferInsert.status })
+          .where(eq(library.id, body.id))
+          .returning();
+
+        return { ok: true, item: updated };
+      } catch (e: any) {
+        return { ok: false, error: e.message };
+      }
+    },
+    {
+      body: t.Object({
+        id: t.Number(),
+        status: t.String(),
+      }),
+    }
+  )
+
+  // Remove from library
+  .delete(
+    "/api/library",
+    async ({ body }) => {
+      try {
+        await db.delete(library).where(eq(library.id, body.id));
+        return { ok: true };
+      } catch (e: any) {
+        return { ok: false, error: e.message };
+      }
+    },
+    {
+      body: t.Object({ id: t.Number() }),
+    }
+  )
+
+  // Poster proxy
+  .get("/api/poster-proxy", async ({ query }) => {
+    const url = query.url as string;
+    if (!url) return new Response("Missing url", { status: 400 });
+
+    try {
+      const fullUrl = url.startsWith("http") ? url : `https://uakino.best${url}`;
+      const resp = await fetch(fullUrl, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+          Referer: "https://uakino.best/",
+        },
+      });
+
+      if (!resp.ok) return new Response("Upstream error", { status: 502 });
+
+      const contentType = resp.headers.get("content-type") || "image/jpeg";
+      const body = await resp.arrayBuffer();
+
+      return new Response(body, {
+        headers: {
+          "Content-Type": contentType,
+          "Cache-Control": "public, max-age=604800",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    } catch (e: any) {
+      return new Response(`Proxy error: ${e.message}`, { status: 500 });
+    }
+  })
+
   // Proxy HLS requests to avoid CORS issues
   .get("/api/proxy", async ({ query }) => {
     const url = query.url;
@@ -117,12 +371,10 @@ const app = new Elysia()
       const contentType = resp.headers.get("content-type") || "application/octet-stream";
       const body = await resp.arrayBuffer();
 
-      // For m3u8 playlists, rewrite URLs to go through proxy
       if (url.endsWith(".m3u8") || contentType.includes("mpegurl") || contentType.includes("m3u8")) {
         let text = new TextDecoder().decode(body);
         const baseUrl = url.substring(0, url.lastIndexOf("/") + 1);
 
-        // Rewrite ALL non-comment URLs to go through proxy (both relative and absolute)
         text = text.replace(/^(?!#)(\S+)$/gm, (match) => {
           let absolute: string;
           if (match.startsWith("http://") || match.startsWith("https://")) {
@@ -173,7 +425,6 @@ const app = new Elysia()
         case "join": {
           const name = msg.name || "Guest";
 
-          // Cancel any pending disconnect timer for this client (grace period reconnect)
           const pendingTimer = pendingDisconnects.get(cid);
           if (pendingTimer) {
             clearTimeout(pendingTimer);
@@ -181,24 +432,20 @@ const app = new Elysia()
             console.log(`[WS] Cancelled pending disconnect for ${cid} (grace period reconnect)`);
           }
 
-          // Clean up old ws -> cid mappings for this cid
           for (const [oldWs, oldCid] of wsToClientId) {
             if (oldCid === cid && oldWs !== ws) {
               wsToClientId.delete(oldWs);
             }
           }
 
-          // Register ws -> clientId mapping for close handler
           wsToClientId.set(ws, cid);
 
-          // Check if client is still in the target room (grace period active)
           const existingState = wsState.get(cid);
           const targetCode = (msg.roomCode && msg.roomCode.trim() !== "") ? msg.roomCode.trim() : null;
 
           if (existingState?.roomCode && targetCode) {
             const existingRoom = getRoom(existingState.roomCode);
             if (existingRoom && existingRoom.code === targetCode.toUpperCase() && existingRoom.clients.has(cid)) {
-              // Seamless reconnect: update ws reference in place, skip remove/re-add
               const existingClient = existingRoom.clients.get(cid)!;
               existingClient.ws = ws;
               existingClient.name = name;
@@ -211,7 +458,6 @@ const app = new Elysia()
             }
           }
 
-          // Clean up any previous state for this clientId (e.g., stale reconnect to different room)
           if (existingState?.roomCode) {
             const oldRoom = getRoom(existingState.roomCode);
             if (oldRoom) {
@@ -226,7 +472,6 @@ const app = new Elysia()
             }
           }
 
-          // Store state
           wsState.set(cid, { clientId: cid, roomCode: null, name });
 
           let room: Room | undefined;
@@ -281,7 +526,7 @@ const app = new Elysia()
           room.currentTime = 0;
           room.isPlaying = false;
 
-          broadcastToRoom(room, { type: "show-loaded", show: msg.show });
+          broadcastToRoom(room, { type: "show-loaded", show: msg.show, sourceUrl: room.sourceUrl });
           break;
         }
 
@@ -306,7 +551,6 @@ const app = new Elysia()
           room.streamUrl = msg.streamUrl;
           console.log(`[WS] Stream ready in room ${room.code}, broadcasting to ${room.clients.size} clients`);
 
-          // Broadcast to all non-host clients (host already loaded locally)
           broadcastToRoom(room, {
             type: "episode-changed",
             episode: room.currentEpisode,
@@ -418,7 +662,6 @@ const app = new Elysia()
         }
 
         case "disconnect": {
-          // Cancel any pending grace period
           const pendingTimer = pendingDisconnects.get(cid);
           if (pendingTimer) {
             clearTimeout(pendingTimer);
@@ -438,7 +681,6 @@ const app = new Elysia()
             });
           }
           wsState.delete(cid);
-          // Also remove ws mapping
           wsToClientId.delete(ws);
           break;
         }
@@ -446,10 +688,8 @@ const app = new Elysia()
     },
 
     close(ws) {
-      // Find the clientId associated with this ws connection
       let cid = wsToClientId.get(ws);
       if (!cid) {
-        // Fallback: search wsState for any client whose ws matches
         for (const [id, state] of wsState) {
           const room = state.roomCode ? getRoom(state.roomCode) : null;
           if (room) {
@@ -466,8 +706,6 @@ const app = new Elysia()
         wsToClientId.delete(ws);
         console.log(`[WS] Connection closed for ${cid}, starting 10s grace period`);
 
-        // Grace period: wait 10 seconds before cleanup
-        // If client reconnects within this window, the timer is cancelled in the join handler
         const clientId = cid;
         const timer = setTimeout(() => {
           pendingDisconnects.delete(clientId);
@@ -480,10 +718,10 @@ const app = new Elysia()
     },
   })
 
-  // Static file serving
+  // Static file serving (production — serves Vite build output)
   .get("/*", async ({ params }) => {
     const filePath = params["*"] || "index.html";
-    const fullPath = join(PUBLIC_DIR, filePath);
+    const fullPath = join(CLIENT_DIR, filePath);
 
     const file = Bun.file(fullPath);
     if (await file.exists()) {
@@ -494,10 +732,14 @@ const app = new Elysia()
     }
 
     // SPA fallback
-    const indexFile = Bun.file(join(PUBLIC_DIR, "index.html"));
-    return new Response(indexFile, {
-      headers: { "Content-Type": "text/html; charset=utf-8" },
-    });
+    const indexFile = Bun.file(join(CLIENT_DIR, "index.html"));
+    if (await indexFile.exists()) {
+      return new Response(indexFile, {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+    }
+
+    return new Response("Not Found", { status: 404 });
   })
 
   .listen(PORT);
