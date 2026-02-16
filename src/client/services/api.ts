@@ -6,6 +6,7 @@ import type {
   LibraryResponse, LibraryAddRequest, LibraryAddResponse,
   LibraryUpdateRequest, LibraryUpdateResponse,
   LibraryDeleteRequest, LibraryDeleteResponse,
+  SearchResponse,
 } from "../../shared/api-types";
 
 function post(body: unknown) {
@@ -46,4 +47,10 @@ export const api = {
 
   removeFromLibrary: (data: LibraryDeleteRequest): Promise<LibraryDeleteResponse> =>
     fetch("/api/library", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => r.json()),
+
+  search: (q: string, page = 1): Promise<SearchResponse> =>
+    fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}`).then(r => r.json()),
+
+  browse: (category: string, page = 1): Promise<SearchResponse> =>
+    fetch(`/api/browse?category=${encodeURIComponent(category)}&page=${page}`).then(r => r.json()),
 };

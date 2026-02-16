@@ -2,8 +2,7 @@ import { createSignal, Show, For, createMemo } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { useAuth } from "../stores/auth";
 import { useRoom } from "../stores/room";
-import { useLibrary, useAddToLibrary, useUpdateLibraryStatus, useRemoveFromLibrary } from "../queries/library";
-import Spinner from "../components/ui/Spinner";
+import { useLibrary, useUpdateLibraryStatus, useRemoveFromLibrary } from "../queries/library";
 import toast from "../lib/toast";
 import { MoreHorizontal } from "lucide-solid";
 import type { LibraryItem, LibraryStatus } from "../../shared/types";
@@ -18,13 +17,11 @@ export default function LibraryPage() {
   const auth = useAuth();
   const room = useRoom();
   const navigate = useNavigate();
-  const [libraryUrl, setLibraryUrl] = createSignal("");
   const [filter, setFilter] = createSignal<string>("all");
   const [menuItem, setMenuItem] = createSignal<{ item: LibraryItem; x: number; y: number } | null>(null);
 
   const userId = () => auth.user()?.id;
   const library = useLibrary(userId);
-  const addToLib = useAddToLibrary();
   const updateStatus = useUpdateLibraryStatus();
   const removeLib = useRemoveFromLibrary();
 
@@ -32,18 +29,6 @@ export default function LibraryPage() {
     const items = library.data ?? [];
     return filter() === "all" ? items : items.filter(i => i.status === filter());
   });
-
-  async function handleAddToLibrary() {
-    const url = libraryUrl().trim();
-    if (!url || !userId()) return;
-    try {
-      await addToLib.mutateAsync({ userId: userId()!, sourceUrl: url });
-      toast("Added to library");
-      setLibraryUrl("");
-    } catch {
-      toast.error("Failed to add");
-    }
-  }
 
   function handleCardClick(item: LibraryItem) {
     room.createRoom(auth.user()!.username);
@@ -94,23 +79,6 @@ export default function LibraryPage() {
           </For>
         </div>
 
-        <div class="flex gap-2 ml-auto min-w-[200px] max-w-[360px] flex-1">
-          <input
-            type="text"
-            value={libraryUrl()}
-            onInput={(e) => setLibraryUrl(e.currentTarget.value)}
-            placeholder="Paste a UaKino URL..."
-            class="flex-1 px-3 py-1.5 bg-input border border-border rounded-md text-text text-sm outline-none transition-colors focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-glow)]"
-            onKeyDown={(e) => e.key === "Enter" && handleAddToLibrary()}
-          />
-          <button
-            onClick={handleAddToLibrary}
-            disabled={addToLib.isPending}
-            class="inline-flex items-center justify-center px-3 py-1.5 bg-accent text-white rounded-md text-[13px] font-semibold cursor-pointer transition-all hover:bg-accent-dark disabled:opacity-50"
-          >
-            {addToLib.isPending ? <Spinner /> : "Add"}
-          </button>
-        </div>
       </div>
 
       <Show
@@ -130,7 +98,7 @@ export default function LibraryPage() {
 
               return (
                 <div
-                  class={`relative rounded-[10px] overflow-hidden bg-card border border-border cursor-pointer transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:duration-200 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(232,67,147,0.15)] group ${menuItem()?.item.id === item.id ? "-translate-y-1 shadow-[0_8px_24px_rgba(232,67,147,0.15)]" : ""}`}
+                  class={`relative rounded-[10px] overflow-hidden bg-card border border-border cursor-pointer transition-all hover:shadow-[0_4px_16px_rgba(232,67,147,0.12)] group ${menuItem()?.item.id === item.id ? "shadow-[0_4px_16px_rgba(232,67,147,0.12)]" : ""}`}
                   onClick={() => handleCardClick(item)}
                 >
                   <button

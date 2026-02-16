@@ -4,7 +4,6 @@ import { useQueryClient } from "@tanstack/solid-query";
 import { useAuth } from "../stores/auth";
 import { useRoom } from "../stores/room";
 import { useWatchedEpisodes, useToggleWatched } from "../queries/watched";
-import { useAddToLibrary } from "../queries/library";
 import { api } from "../services/api";
 import toast from "../lib/toast";
 import RoomHeader from "../components/room/RoomHeader";
@@ -33,8 +32,6 @@ export default function RoomPage() {
   const sourceUrl = () => room.state.sourceUrl ?? undefined;
   const watched = useWatchedEpisodes(userId, sourceUrl);
   const toggleWatched = useToggleWatched();
-  const addToLib = useAddToLibrary();
-
   // Join room on mount
   onMount(() => {
     if (!room.state.connected && params.code) {
@@ -64,10 +61,6 @@ export default function RoomPage() {
         room.setShow(resp.show, url);
         const count = resp.show.dubs.reduce((a, d) => a + d.episodes.length, 0);
         toast(`Found ${count} episodes`);
-        // Add to library if not already there (keeps existing status)
-        if (userId()) {
-          addToLib.mutate({ userId: userId()!, sourceUrl: url });
-        }
       } else {
         toast.error(resp.error ?? "Failed to load");
       }

@@ -1,6 +1,6 @@
 import { Show, For, createSignal, onCleanup } from "solid-js";
 import { A } from "@solidjs/router";
-import { Copy, Home, BookOpen, Share2 } from "lucide-solid";
+import { Copy, Home, BookOpen, Search, Share2 } from "lucide-solid";
 import toast from "../../lib/toast";
 
 export default function RoomHeader(props: { code: string; clientCount: number; viewers: string[]; isHost: boolean }) {
@@ -32,6 +32,9 @@ export default function RoomHeader(props: { code: string; clientCount: number; v
         <div class="flex items-center gap-2">
           <A href="/" class="text-muted hover:text-accent transition-colors" title="Home">
             <Home size={15} />
+          </A>
+          <A href="/search" class="text-muted hover:text-accent transition-colors" title="Browse">
+            <Search size={15} />
           </A>
           <A href="/library" class="text-muted hover:text-accent transition-colors" title="Library">
             <BookOpen size={15} />

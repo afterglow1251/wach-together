@@ -1,4 +1,4 @@
-import type { LibraryItem, LibraryStatus, ParsedShow, User } from "./types";
+import type { LibraryItem, LibraryStatus, ParsedShow, SearchResultItem, User } from "./types";
 
 // POST /api/auth
 export interface AuthRequest {
@@ -86,5 +86,13 @@ export interface LibraryDeleteRequest {
 }
 export interface LibraryDeleteResponse {
   ok: boolean;
+  error?: string;
+}
+
+// GET /api/search?q=&page=
+// GET /api/browse?category=&page=
+export interface SearchResponse {
+  ok: boolean;
+  results?: SearchResultItem[];
   error?: string;
 }

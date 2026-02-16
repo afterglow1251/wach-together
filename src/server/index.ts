@@ -1,5 +1,5 @@
 import { Elysia, t } from "elysia";
-import { parseUakinoPage, extractStreamUrl } from "./scraper";
+import { parseUakinoPage, extractStreamUrl, searchUakino, browseUakino } from "./scraper";
 import {
   createRoom,
   getRoom,
@@ -98,6 +98,44 @@ new Elysia()
     },
     { body: t.Object({ url: t.String() }) }
   )
+
+  // Search uakino
+  .get("/api/search", async ({ query }) => {
+    const q = (query.q as string || "").trim();
+    const page = parseInt(query.page as string) || 1;
+    if (!q) return { ok: false, error: "Missing query" };
+
+    try {
+      const results = await Promise.race([
+        searchUakino(q, page),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Search timed out (15s)")), 15000)
+        ),
+      ]);
+      return { ok: true, results };
+    } catch (e: any) {
+      return { ok: false, error: e.message };
+    }
+  })
+
+  // Browse uakino by category
+  .get("/api/browse", async ({ query }) => {
+    const category = (query.category as string || "").trim();
+    const page = parseInt(query.page as string) || 1;
+    if (!category) return { ok: false, error: "Missing category" };
+
+    try {
+      const results = await Promise.race([
+        browseUakino(category, page),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Browse timed out (15s)")), 15000)
+        ),
+      ]);
+      return { ok: true, results };
+    } catch (e: any) {
+      return { ok: false, error: e.message };
+    }
+  })
 
   // Auth — auto register/login
   .post(

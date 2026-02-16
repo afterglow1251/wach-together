@@ -7,6 +7,7 @@ import { RoomProvider } from "./stores/room";
 import AuthPage from "./routes/AuthPage";
 import HomePage from "./routes/HomePage";
 import LibraryPage from "./routes/LibraryPage";
+import SearchPage from "./routes/SearchPage";
 import RoomPage from "./routes/RoomPage";
 import AppLayout from "./components/layout/AppLayout";
 
@@ -33,6 +34,9 @@ export default function App() {
           <Route path="/auth" component={AuthPage} />
           <Route path="/" component={() => (
             <AuthGuard><AppLayout><HomePage /></AppLayout></AuthGuard>
+          )} />
+          <Route path="/search" component={() => (
+            <AuthGuard><AppLayout><SearchPage /></AppLayout></AuthGuard>
           )} />
           <Route path="/library" component={() => (
             <AuthGuard><AppLayout><LibraryPage /></AppLayout></AuthGuard>

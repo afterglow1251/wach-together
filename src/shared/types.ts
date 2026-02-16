@@ -49,3 +49,14 @@ export interface LibraryItem {
 }
 
 export type LibraryStatus = "plan_to_watch" | "watching" | "watched";
+
+export type ContentCategory = "film" | "series" | "cartoon" | "anime";
+
+export interface SearchResultItem {
+  title: string;
+  url: string;
+  poster: string;
+  year: string | null;
+  rating: string | null;
+  category: ContentCategory | null;
+}

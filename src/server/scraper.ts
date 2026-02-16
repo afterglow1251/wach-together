@@ -1,4 +1,4 @@
-import type { DubGroup, Episode, ParsedShow } from "../shared/types";
+import type { ContentCategory, DubGroup, Episode, ParsedShow, SearchResultItem } from "../shared/types";
 
 const HEADERS = {
   "User-Agent":
@@ -227,4 +227,99 @@ async function tryGet2FunApi(param: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+// --- Search & Browse ---
+
+const CATEGORY_MAP: Record<string, string> = {
+  films: "/filmy/",
+  series: "/seriesss/",
+  cartoons: "/cartoon/",
+  anime: "/animeukr/",
+};
+
+function detectCategory(url: string): ContentCategory | null {
+  if (url.includes("/filmy/")) return "film";
+  if (url.includes("/seriesss/")) return "series";
+  if (url.includes("/cartoon/")) return "cartoon";
+  if (url.includes("/animeukr/")) return "anime";
+  return null;
+}
+
+function parseResultCards(html: string): SearchResultItem[] {
+  const results: SearchResultItem[] = [];
+  const seen = new Set<string>();
+
+  // Cards are <div class="movie-item short-item"> ... next card or end
+  const cardParts = html.split(/(?=<div\s+class="movie-item\s)/);
+
+  for (const card of cardParts) {
+    if (!card.includes('movie-item')) continue;
+
+    // Title + URL from <a class="movie-title" href="...">Title</a>
+    const titleLinkMatch = card.match(/<a\s+class="movie-title"\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/);
+    if (!titleLinkMatch) continue;
+
+    const url = titleLinkMatch[1];
+    if (seen.has(url)) continue;
+    seen.add(url);
+
+    const title = titleLinkMatch[2].replace(/<[^>]+>/g, "").trim();
+    if (!title) continue;
+
+    // Poster from <img src="...">
+    const posterMatch = card.match(/<img\s+src="([^"]+)"/);
+    const poster = posterMatch?.[1] || "";
+
+    // Year from "Рік виходу:" label followed by deck-value with a year link
+    const yearMatch = card.match(/Рік виходу:[\s\S]*?find\/year\/(\d{4})\//);
+    const year = yearMatch?.[1] || null;
+
+    // IMDB rating from "IMDB:" label followed by deck-value
+    const ratingMatch = card.match(/IMDB:<\/span><\/div><div\s+class="deck-value"[^>]*>([\d.]+)<\/div>/);
+    const rating = ratingMatch?.[1] || null;
+
+    results.push({ title, url, poster, year, rating, category: detectCategory(url) });
+  }
+
+  return results;
+}
+
+export async function searchUakino(query: string, page = 1): Promise<SearchResultItem[]> {
+  const body = new URLSearchParams({
+    do: "search",
+    subaction: "search",
+    story: query,
+    search_start: String(page),
+    full_search: "0",
+    result_from: String((page - 1) * 20 + 1),
+  });
+
+  const resp = await fetch("https://uakino.best/index.php?do=search", {
+    method: "POST",
+    headers: {
+      ...HEADERS,
+      Referer: "https://uakino.best/",
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+  });
+
+  if (!resp.ok) throw new Error(`Search failed: ${resp.status}`);
+  const html = await resp.text();
+  return parseResultCards(html);
+}
+
+export async function browseUakino(category: string, page = 1): Promise<SearchResultItem[]> {
+  const path = CATEGORY_MAP[category];
+  if (!path) throw new Error(`Unknown category: ${category}`);
+
+  const url = `https://uakino.best${path}page/${page}/`;
+  const resp = await fetch(url, {
+    headers: { ...HEADERS, Referer: "https://uakino.best/" },
+  });
+
+  if (!resp.ok) throw new Error(`Browse failed: ${resp.status}`);
+  const html = await resp.text();
+  return parseResultCards(html);
 }

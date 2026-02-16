@@ -29,7 +29,33 @@ export function useAddToLibrary() {
       if (!res.ok) throw new Error(res.error ?? "Failed to add");
       return res;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["library"] }),
+    onMutate: async (data: LibraryAddRequest) => {
+      await qc.cancelQueries({ queryKey: ["library"] });
+      const prev = qc.getQueriesData<LibraryResponse>({ queryKey: ["library"] });
+      qc.setQueriesData<LibraryResponse>({ queryKey: ["library"] }, (old) => {
+        if (!old?.items) return old;
+        if (old.items.some(i => i.sourceUrl === data.sourceUrl)) return old;
+        return {
+          ...old,
+          items: [...old.items, {
+            id: -Date.now(),
+            userId: data.userId,
+            sourceUrl: data.sourceUrl,
+            title: data.sourceUrl,
+            poster: "",
+            totalEpisodes: 0,
+            status: (data.status || "plan_to_watch") as LibraryStatus,
+            addedAt: new Date().toISOString(),
+            watchedCount: 0,
+          }],
+        };
+      });
+      return { prev };
+    },
+    onError: (_err: unknown, _data: LibraryAddRequest, context: { prev: [unknown, LibraryResponse | undefined][] } | undefined) => {
+      context?.prev.forEach(([key, data]) => qc.setQueryData(key as string[], data));
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["library"] }),
   }));
 }
 

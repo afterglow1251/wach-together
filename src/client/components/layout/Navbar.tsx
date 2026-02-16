@@ -20,6 +20,13 @@ export default function Navbar() {
           Home
         </A>
         <A
+          href="/search"
+          class="px-3 py-1.5 rounded-md text-[13px] font-medium text-muted transition-colors hover:text-text hover:bg-hover"
+          activeClass="!text-accent !bg-accent/10"
+        >
+          Browse
+        </A>
+        <A
           href="/library"
           class="px-3 py-1.5 rounded-md text-[13px] font-medium text-muted transition-colors hover:text-text hover:bg-hover"
           activeClass="!text-accent !bg-accent/10"
