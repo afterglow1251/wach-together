@@ -7,6 +7,15 @@ export default defineConfig({
   build: {
     outDir: "dist/client",
     target: "esnext",
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          plyr: ["plyr"],
+          hls: ["hls.js"],
+        },
+      },
+    },
   },
   server: {
     port: 5173,
