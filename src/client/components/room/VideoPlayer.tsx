@@ -1,4 +1,9 @@
-import { onMount, onCleanup, createEffect, type ParentComponent } from "solid-js";
+import {
+  onMount,
+  onCleanup,
+  createEffect,
+  type ParentComponent,
+} from "solid-js";
 import Plyr from "plyr";
 import Hls from "hls.js";
 
@@ -23,7 +28,16 @@ const VideoPlayer: ParentComponent<{
 
   onMount(() => {
     plyr = new Plyr(videoEl, {
-      controls: ["play-large", "play", "progress", "current-time", "duration", "mute", "volume", "fullscreen"],
+      controls: [
+        "play-large",
+        "play",
+        "progress",
+        "current-time",
+        "duration",
+        "mute",
+        "volume",
+        "fullscreen",
+      ],
       keyboard: { focused: true, global: true },
       tooltips: { controls: true, seek: true },
       seekTime: 5,
@@ -32,7 +46,9 @@ const VideoPlayer: ParentComponent<{
     });
 
     // Custom click: single = play/pause, double = fullscreen
-    const videoWrapper = wrapperEl.querySelector(".plyr__video-wrapper") || wrapperEl.querySelector(".plyr");
+    const videoWrapper =
+      wrapperEl.querySelector(".plyr__video-wrapper") ||
+      wrapperEl.querySelector(".plyr");
     videoWrapper?.addEventListener("click", (e: Event) => {
       const target = e.target as HTMLElement;
       if (target.closest(".plyr__controls") || target.closest("button")) return;
@@ -79,23 +95,23 @@ const VideoPlayer: ParentComponent<{
     const proxiedUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
     wrapperEl.classList.remove("no-source");
 
-    if (hls) { hls.destroy(); hls = null; }
+    if (hls) {
+      hls.destroy();
+      hls = null;
+    }
 
     if (Hls.isSupported()) {
       hls = new Hls({ maxBufferLength: 30, maxMaxBufferLength: 60 });
       hls.loadSource(proxiedUrl);
       hls.attachMedia(videoEl);
 
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        if (props.isHost) {
-          videoEl.play().catch(() => {});
-        }
-      });
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {});
 
       hls.on(Hls.Events.ERROR, (_, data) => {
         if (data.fatal) {
           if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls?.startLoad();
-          else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls?.recoverMediaError();
+          else if (data.type === Hls.ErrorTypes.MEDIA_ERROR)
+            hls?.recoverMediaError();
           else hls?.destroy();
         }
       });
@@ -117,17 +133,23 @@ const VideoPlayer: ParentComponent<{
     if (drift > 1.5) {
       ignoreEvents = true;
       videoEl.currentTime = time;
-      setTimeout(() => { ignoreEvents = false; }, 200);
+      setTimeout(() => {
+        ignoreEvents = false;
+      }, 200);
     }
 
     if (playing && videoEl.paused) {
       ignoreEvents = true;
       videoEl.play().catch(() => {});
-      setTimeout(() => { ignoreEvents = false; }, 200);
+      setTimeout(() => {
+        ignoreEvents = false;
+      }, 200);
     } else if (!playing && !videoEl.paused) {
       ignoreEvents = true;
       videoEl.pause();
-      setTimeout(() => { ignoreEvents = false; }, 200);
+      setTimeout(() => {
+        ignoreEvents = false;
+      }, 200);
     }
   });
 
@@ -167,8 +189,16 @@ const VideoPlayer: ParentComponent<{
   });
 
   return (
-    <div ref={wrapperEl} id="plyr-wrapper" class="flex-1 relative flex items-center justify-center overflow-hidden no-source">
-      <video ref={videoEl} class="w-full h-full object-contain bg-black" playsinline />
+    <div
+      ref={wrapperEl}
+      id="plyr-wrapper"
+      class="flex-1 relative flex items-center justify-center overflow-hidden no-source"
+    >
+      <video
+        ref={videoEl}
+        class="w-full h-full object-contain bg-black"
+        playsinline
+      />
       {props.children}
     </div>
   );

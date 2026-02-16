@@ -1,5 +1,7 @@
-import { For, createSignal } from "solid-js";
+import { For, createSignal, createEffect, onMount, onCleanup } from "solid-js";
 import type { ChatMsg } from "../../stores/room";
+
+const MSG_LIFETIME = 4400; // 300ms in + 4000ms visible + 400ms out
 
 export default function FullscreenChat(props: {
   messages: ChatMsg[];
@@ -7,15 +9,39 @@ export default function FullscreenChat(props: {
   onTyping: () => void;
 }) {
   const [open, setOpen] = createSignal(false);
+  const [visible, setVisible] = createSignal<ChatMsg[]>([]);
   let inputEl!: HTMLInputElement;
-  let msgsEl!: HTMLDivElement;
+  let lastSeenId = 0;
 
-  // Show last 5 messages as overlay
-  const recent = () => props.messages.slice(-5);
+  // "/" shortcut to open chat in fullscreen
+  function onKey(e: KeyboardEvent) {
+    if (e.key === "/" && !open() && document.fullscreenElement) {
+      e.preventDefault();
+      setOpen(true);
+      setTimeout(() => inputEl?.focus(), 50);
+    }
+  }
+  onMount(() => document.addEventListener("keydown", onKey));
+  onCleanup(() => document.removeEventListener("keydown", onKey));
+
+  // Track new messages and auto-expire them independently
+  createEffect(() => {
+    const msgs = props.messages;
+    const last = msgs[msgs.length - 1];
+    if (!last || last.id === lastSeenId) return;
+    lastSeenId = last.id;
+
+    setVisible((prev) => [...prev.slice(-4), last]);
+
+    const id = last.id;
+    setTimeout(() => {
+      setVisible((prev) => prev.filter((m) => m.id !== id));
+    }, MSG_LIFETIME);
+  });
 
   function handleSend() {
     const text = inputEl.value.trim();
-    if (!text) return;
+    if (!text) { setOpen(false); inputEl.blur(); return; }
     props.onSend(text);
     inputEl.value = "";
   }
@@ -41,8 +67,8 @@ export default function FullscreenChat(props: {
         class="absolute top-[50px] right-3 z-[22] pointer-events-none flex-col items-end gap-1.5 max-w-[300px] hidden"
         style={{ display: "var(--fs-chat-display, none)" }}
       >
-        <div ref={msgsEl} class="flex flex-col items-end gap-1 max-h-[200px] overflow-hidden">
-          <For each={recent()}>
+        <div class="flex flex-col items-end gap-1 max-h-[200px] overflow-hidden">
+          <For each={visible()}>
             {(msg) => (
               <div
                 class="bg-black/60 backdrop-blur-md text-white px-3 py-1.5 rounded-[10px] text-[13px] max-w-[280px] pointer-events-none"
