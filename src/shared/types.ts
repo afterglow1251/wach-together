@@ -96,6 +96,19 @@ export interface SharedWatchItem {
   lastWatchedAt: string | null
 }
 
+export interface PlaybackPosition {
+  id: number
+  sourceUrl: string
+  episodeId: string | null
+  episodeUrl: string
+  title: string
+  poster: string
+  episodeName: string | null
+  position: number
+  duration: number
+  updatedAt: string | null
+}
+
 export interface SearchResultItem {
   title: string
   url: string

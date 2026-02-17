@@ -1,9 +1,10 @@
-import { createSignal, createEffect, Show, onMount } from "solid-js"
+import { createSignal, createEffect, Show, onMount, onCleanup } from "solid-js"
 import { useParams, useSearchParams, useNavigate } from "@solidjs/router"
 import { useQueryClient } from "@tanstack/solid-query"
 import { useAuth } from "../stores/auth"
 import { useRoom } from "../stores/room"
 import { useWatchedEpisodes, useToggleWatched } from "../queries/watched"
+import { useSavePlaybackPosition } from "../queries/playback"
 import { api } from "../services/api"
 import toast from "../lib/toast"
 import RoomHeader from "../components/room/RoomHeader"
@@ -26,12 +27,15 @@ export default function RoomPage() {
   const room = useRoom()
   const [dubIndex, setDubIndex] = createSignal(0)
   const [autoMarkedId, setAutoMarkedId] = createSignal<string | null>(null)
+  const [initialSeek, setInitialSeek] = createSignal<number | undefined>(undefined)
 
   const qc = useQueryClient()
   const userId = () => auth.user()?.id
   const sourceUrl = () => room.state.sourceUrl ?? undefined
   const watched = useWatchedEpisodes(userId, sourceUrl)
   const toggleWatched = useToggleWatched()
+  const savePosition = useSavePlaybackPosition()
+  let lastSavedTime = 0
   // Join room on mount
   onMount(() => {
     if (!room.state.connected && params.code) {
@@ -46,11 +50,35 @@ export default function RoomPage() {
     }
   })
 
+  // Read resume seek time from URL params
+  onMount(() => {
+    const t = searchParams.t
+    if (typeof t === "string" && t) {
+      const seekTime = parseInt(t)
+      if (seekTime > 0) setInitialSeek(seekTime)
+    }
+  })
+
   // Auto-load show from library URL param
   createEffect(() => {
     const loadUrl = searchParams.load
     if (typeof loadUrl === "string" && loadUrl && room.state.isHost && room.state.connected && !room.state.show) {
       handleLoadUrl(loadUrl)
+    }
+  })
+
+  // Auto-select episode from URL param after show loads
+  createEffect(() => {
+    const epUrl = searchParams.ep
+    if (typeof epUrl !== "string" || !epUrl) return
+    if (!room.state.show || !room.state.isHost || room.state.currentEpisode) return
+
+    for (const dub of room.state.show.dubs) {
+      const ep = dub.episodes.find((e) => e.url === epUrl)
+      if (ep) {
+        handleEpisodeSelect(ep)
+        break
+      }
     }
   })
 
@@ -95,6 +123,22 @@ export default function RoomPage() {
     })
   }
 
+  function savePlaybackPosition(time: number, duration: number) {
+    if (!userId() || !sourceUrl() || !room.state.currentEpisode || !room.state.show || !duration) return
+    savePosition.mutate({
+      userId: userId()!,
+      sourceUrl: sourceUrl()!,
+      episodeId: room.state.currentEpisode.id,
+      episodeUrl: room.state.currentEpisode.url,
+      title: room.state.show.title,
+      poster: room.state.show.poster,
+      episodeName: room.state.currentEpisode.name,
+      position: Math.floor(time),
+      duration: Math.floor(duration),
+    })
+    lastSavedTime = time
+  }
+
   function handleTimeUpdate(time: number, duration: number) {
     if (!room.state.currentEpisode || !duration) return
     const progress = time / duration
@@ -108,6 +152,15 @@ export default function RoomPage() {
         }
       }
     }
+    // Save position every 10 seconds of playback change
+    if (Math.abs(time - lastSavedTime) >= 10) {
+      savePlaybackPosition(time, duration)
+    }
+  }
+
+  function handlePause(time: number, duration: number) {
+    if (!duration) return
+    savePlaybackPosition(time, duration)
   }
 
   const currentDub = () => room.state.show?.dubs[dubIndex()] ?? null
@@ -186,11 +239,13 @@ export default function RoomPage() {
           isHost={room.state.isHost}
           isPlaying={room.state.isPlaying}
           currentTime={room.state.currentTime}
+          initialSeek={initialSeek()}
           onPlay={(t) => room.sendPlay(t)}
           onPause={(t) => room.sendPause(t)}
           onSeek={(t) => room.sendSeek(t)}
           onSync={(t, p) => room.sendSync(t, p)}
           onTimeUpdate={handleTimeUpdate}
+          onPauseWithDuration={handlePause}
         >
           <SeekOverlay />
           <ReactionBar onReaction={(e) => room.sendReaction(e)} lastReaction={room.state.lastReaction} />

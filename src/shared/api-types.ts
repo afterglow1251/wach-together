@@ -9,6 +9,7 @@ import type {
   FriendRequest,
   SentFriendRequest,
   SharedWatchItem,
+  PlaybackPosition,
 } from "./types"
 
 // POST /api/auth
@@ -219,6 +220,30 @@ export interface SharedLibraryDeleteRequest {
 }
 export interface SharedLibraryDeleteResponse {
   ok: boolean
+  error?: string
+}
+
+// POST /api/playback-position
+export interface PlaybackPositionSaveRequest {
+  userId: number
+  sourceUrl: string
+  episodeId?: string
+  episodeUrl: string
+  title: string
+  poster: string
+  episodeName?: string
+  position: number
+  duration: number
+}
+export interface PlaybackPositionSaveResponse {
+  ok: boolean
+  error?: string
+}
+
+// GET /api/playback-position?userId=
+export interface PlaybackPositionGetResponse {
+  ok: boolean
+  positions?: PlaybackPosition[]
   error?: string
 }
 

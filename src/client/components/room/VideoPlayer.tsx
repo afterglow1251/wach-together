@@ -7,11 +7,13 @@ const VideoPlayer: ParentComponent<{
   isHost: boolean
   isPlaying: boolean
   currentTime: number
+  initialSeek?: number
   onPlay: (time: number) => void
   onPause: (time: number) => void
   onSeek: (time: number) => void
   onSync: (time: number, isPlaying: boolean) => void
   onTimeUpdate: (time: number, duration: number) => void
+  onPauseWithDuration?: (time: number, duration: number) => void
 }> = (props) => {
   let videoEl!: HTMLVideoElement
   let wrapperEl!: HTMLDivElement
@@ -20,6 +22,7 @@ const VideoPlayer: ParentComponent<{
   let ignoreEvents = false
   let syncInterval: ReturnType<typeof setInterval> | null = null
   let clickTimer: ReturnType<typeof setTimeout> | null = null
+  let didInitialSeek = false
 
   onMount(() => {
     plyr = new Plyr(videoEl, {
@@ -55,6 +58,9 @@ const VideoPlayer: ParentComponent<{
     })
 
     videoEl.addEventListener("pause", () => {
+      if (videoEl.duration) {
+        props.onPauseWithDuration?.(videoEl.currentTime, videoEl.duration)
+      }
       if (ignoreEvents || !props.isHost) return
       props.onPause(videoEl.currentTime)
     })
@@ -78,6 +84,7 @@ const VideoPlayer: ParentComponent<{
 
     const proxiedUrl = `/api/proxy?url=${encodeURIComponent(url)}`
     wrapperEl.classList.remove("no-source")
+    didInitialSeek = false
 
     if (hls) {
       hls.destroy()
@@ -89,7 +96,16 @@ const VideoPlayer: ParentComponent<{
       hls.loadSource(proxiedUrl)
       hls.attachMedia(videoEl)
 
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {})
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        if (!didInitialSeek && props.initialSeek && props.initialSeek > 0) {
+          didInitialSeek = true
+          const onCanPlay = () => {
+            videoEl.removeEventListener("canplay", onCanPlay)
+            videoEl.currentTime = props.initialSeek!
+          }
+          videoEl.addEventListener("canplay", onCanPlay)
+        }
+      })
 
       hls.on(Hls.Events.ERROR, (_, data) => {
         if (data.fatal) {
@@ -100,6 +116,14 @@ const VideoPlayer: ParentComponent<{
       })
     } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
       videoEl.src = proxiedUrl
+      if (!didInitialSeek && props.initialSeek && props.initialSeek > 0) {
+        didInitialSeek = true
+        const onCanPlay = () => {
+          videoEl.removeEventListener("canplay", onCanPlay)
+          videoEl.currentTime = props.initialSeek!
+        }
+        videoEl.addEventListener("canplay", onCanPlay)
+      }
     }
   })
 

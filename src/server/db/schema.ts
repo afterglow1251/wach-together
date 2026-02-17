@@ -89,6 +89,26 @@ export const sharedLibrary = pgTable(
   ],
 )
 
+export const playbackPositions = pgTable(
+  "playback_positions",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    sourceUrl: text("source_url").notNull(),
+    episodeId: text("episode_id"),
+    episodeUrl: text("episode_url").notNull(),
+    title: text("title").notNull(),
+    poster: text("poster").notNull(),
+    episodeName: text("episode_name"),
+    position: integer("position").notNull(),
+    duration: integer("duration").notNull(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [uniqueIndex("playback_positions_user_source_ep_idx").on(table.userId, table.sourceUrl, table.episodeId)],
+)
+
 export const watchedEpisodes = pgTable(
   "watched_episodes",
   {

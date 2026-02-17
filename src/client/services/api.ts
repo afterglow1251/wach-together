@@ -38,6 +38,9 @@ import type {
   SharedLibraryUpdateResponse,
   SharedLibraryDeleteRequest,
   SharedLibraryDeleteResponse,
+  PlaybackPositionSaveRequest,
+  PlaybackPositionSaveResponse,
+  PlaybackPositionGetResponse,
 } from "../../shared/api-types"
 
 function post(body: unknown) {
@@ -147,4 +150,10 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     }).then((r) => r.json()),
+
+  savePlaybackPosition: (data: PlaybackPositionSaveRequest): Promise<PlaybackPositionSaveResponse> =>
+    fetch("/api/playback-position", post(data)).then((r) => r.json()),
+
+  getPlaybackPositions: (userId: number): Promise<PlaybackPositionGetResponse> =>
+    fetch(`/api/playback-position?userId=${userId}`).then((r) => r.json()),
 }
