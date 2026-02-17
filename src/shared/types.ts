@@ -75,6 +75,19 @@ export interface SentFriendRequest {
   createdAt: string | null
 }
 
+export interface SharedLibraryItem {
+  id: number
+  user1Id: number
+  user2Id: number
+  sourceUrl: string
+  title: string
+  poster: string
+  totalEpisodes: number
+  status: LibraryStatus
+  addedAt: string | null
+  watchedCount: number
+}
+
 export interface SharedWatchItem {
   sourceUrl: string
   title: string

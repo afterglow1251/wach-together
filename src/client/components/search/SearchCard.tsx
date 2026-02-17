@@ -18,7 +18,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 export default function SearchCard(props: {
   item: SearchResultItem
   onClick: () => void
-  onBookmark?: () => void
+  onBookmark?: (e: MouseEvent) => void
   inLibrary?: boolean
 }) {
   const poster = () => (props.item.poster ? `/api/poster-proxy?url=${encodeURIComponent(props.item.poster)}` : "")
@@ -49,14 +49,14 @@ export default function SearchCard(props: {
         <button
           onClick={(e) => {
             e.stopPropagation()
-            if (!props.inLibrary) props.onBookmark!()
+            props.onBookmark!(e)
           }}
           class={`absolute top-2 right-2 w-7 h-7 rounded-full border-none cursor-pointer flex items-center justify-center transition-opacity backdrop-blur-sm z-10 ${
             props.inLibrary
               ? "bg-accent/80 text-white opacity-100"
               : "bg-black/60 text-white opacity-0 group-hover:opacity-100 hover:bg-accent/60"
           }`}
-          title={props.inLibrary ? "In library" : "Add to library"}
+          title={props.inLibrary ? "In shared library" : "Add to shared library"}
         >
           <Bookmark size={14} fill={props.inLibrary ? "currentColor" : "none"} />
         </button>

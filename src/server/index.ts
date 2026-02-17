@@ -7,7 +7,7 @@ import { join } from "path"
 
 const errMsg = (e: unknown): string => (e instanceof Error ? e.message : "Unknown error")
 import { db } from "./db"
-import { users, watchedEpisodes, library, friendships, sharedWatches } from "./db/schema"
+import { users, watchedEpisodes, library, friendships, sharedWatches, sharedLibrary } from "./db/schema"
 import { eq, and, or, sql, ne, ilike, desc } from "drizzle-orm"
 import type { LibraryStatus } from "../shared/types"
 
@@ -100,6 +100,9 @@ async function recordSharedWatch(room: Room) {
   const episodeId = room.currentEpisode?.id ?? null
   const episodeName = room.currentEpisode?.name ?? null
 
+  // Count total episodes from show data
+  const totalEpisodes = room.show ? Math.max(...room.show.dubs.map((d) => d.episodes.length), 0) : 0
+
   for (let i = 0; i < authenticatedUsers.length; i++) {
     for (let j = i + 1; j < authenticatedUsers.length; j++) {
       const u1 = Math.min(authenticatedUsers[i], authenticatedUsers[j])
@@ -116,6 +119,32 @@ async function recordSharedWatch(room: Room) {
         })
       } catch {
         // ignore duplicates or errors
+      }
+
+      // Auto-upsert into shared_library: plan_to_watch → watching
+      try {
+        await db
+          .insert(sharedLibrary)
+          .values({
+            user1Id: u1,
+            user2Id: u2,
+            sourceUrl,
+            title,
+            poster,
+            totalEpisodes,
+            status: "watching",
+          })
+          .onConflictDoUpdate({
+            target: [sharedLibrary.user1Id, sharedLibrary.user2Id, sharedLibrary.sourceUrl],
+            set: {
+              title,
+              poster,
+              totalEpisodes,
+              status: sql`CASE WHEN ${sharedLibrary.status} = 'plan_to_watch' THEN 'watching' ELSE ${sharedLibrary.status} END`,
+            },
+          })
+      } catch {
+        // ignore errors
       }
     }
   }
@@ -392,6 +421,152 @@ new Elysia()
     async ({ body }) => {
       try {
         await db.delete(library).where(eq(library.id, body.id))
+        return { ok: true }
+      } catch (e) {
+        return { ok: false, error: errMsg(e) }
+      }
+    },
+    {
+      body: t.Object({ id: t.Number() }),
+    },
+  )
+
+  // Get shared library for a friend pair
+  .get("/api/shared-library", async ({ query }) => {
+    const userId = parseInt(query.userId as string)
+    const friendId = parseInt(query.friendId as string)
+    if (!userId || !friendId) return { ok: false, error: "Missing params" }
+
+    const u1 = Math.min(userId, friendId)
+    const u2 = Math.max(userId, friendId)
+
+    const items = await db
+      .select()
+      .from(sharedLibrary)
+      .where(and(eq(sharedLibrary.user1Id, u1), eq(sharedLibrary.user2Id, u2)))
+      .orderBy(desc(sharedLibrary.addedAt))
+
+    // Count watched episodes per sourceUrl from shared_watches
+    const watchedCounts = await db
+      .select({
+        sourceUrl: sharedWatches.sourceUrl,
+        count: sql<number>`count(distinct ${sharedWatches.episodeId})::int`,
+      })
+      .from(sharedWatches)
+      .where(and(eq(sharedWatches.user1Id, u1), eq(sharedWatches.user2Id, u2)))
+      .groupBy(sharedWatches.sourceUrl)
+
+    const countMap = new Map(watchedCounts.map((r) => [r.sourceUrl, r.count]))
+
+    return {
+      ok: true,
+      items: items.map((item) => ({
+        ...item,
+        watchedCount: countMap.get(item.sourceUrl) || 0,
+      })),
+    }
+  })
+
+  // Add show to shared library
+  .post(
+    "/api/shared-library",
+    async ({ body }) => {
+      try {
+        const { userId, friendId, sourceUrl, status } = body
+
+        // Verify friendship exists
+        const u1 = Math.min(userId, friendId)
+        const u2 = Math.max(userId, friendId)
+        const friendship = await db
+          .select()
+          .from(friendships)
+          .where(
+            and(
+              eq(friendships.status, "accepted"),
+              or(
+                and(eq(friendships.senderId, userId), eq(friendships.receiverId, friendId)),
+                and(eq(friendships.senderId, friendId), eq(friendships.receiverId, userId)),
+              ),
+            ),
+          )
+          .limit(1)
+
+        if (friendship.length === 0) return { ok: false, error: "Not friends" }
+
+        const show = await Promise.race([
+          parseUakinoPage(sourceUrl),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timed out loading page (30s)")), 30000)),
+        ])
+
+        const totalEpisodes = Math.max(...show.dubs.map((d) => d.episodes.length), 0)
+
+        const [item] = await db
+          .insert(sharedLibrary)
+          .values({
+            user1Id: u1,
+            user2Id: u2,
+            sourceUrl,
+            title: show.title,
+            poster: show.poster,
+            totalEpisodes,
+            status: (status || "plan_to_watch") as typeof sharedLibrary.$inferInsert.status,
+          })
+          .onConflictDoUpdate({
+            target: [sharedLibrary.user1Id, sharedLibrary.user2Id, sharedLibrary.sourceUrl],
+            set: {
+              title: show.title,
+              poster: show.poster,
+              totalEpisodes,
+              ...(status ? { status: status as typeof sharedLibrary.$inferInsert.status } : {}),
+            },
+          })
+          .returning()
+
+        return { ok: true, item: { ...item, watchedCount: 0 } }
+      } catch (e) {
+        return { ok: false, error: errMsg(e) }
+      }
+    },
+    {
+      body: t.Object({
+        userId: t.Number(),
+        friendId: t.Number(),
+        sourceUrl: t.String(),
+        status: t.Optional(t.String()),
+      }),
+    },
+  )
+
+  // Update shared library item status
+  .patch(
+    "/api/shared-library",
+    async ({ body }) => {
+      try {
+        const [updated] = await db
+          .update(sharedLibrary)
+          .set({ status: body.status as typeof sharedLibrary.$inferInsert.status })
+          .where(eq(sharedLibrary.id, body.id))
+          .returning()
+
+        return { ok: true, item: updated }
+      } catch (e) {
+        return { ok: false, error: errMsg(e) }
+      }
+    },
+    {
+      body: t.Object({
+        id: t.Number(),
+        status: t.String(),
+      }),
+    },
+  )
+
+  // Remove from shared library
+  .delete(
+    "/api/shared-library",
+    async ({ body }) => {
+      try {
+        await db.delete(sharedLibrary).where(eq(sharedLibrary.id, body.id))
         return { ok: true }
       } catch (e) {
         return { ok: false, error: errMsg(e) }

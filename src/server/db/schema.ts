@@ -66,6 +66,29 @@ export const library = pgTable(
   (table) => [uniqueIndex("library_user_source_idx").on(table.userId, table.sourceUrl)],
 )
 
+export const sharedLibrary = pgTable(
+  "shared_library",
+  {
+    id: serial("id").primaryKey(),
+    user1Id: integer("user1_id")
+      .notNull()
+      .references(() => users.id),
+    user2Id: integer("user2_id")
+      .notNull()
+      .references(() => users.id),
+    sourceUrl: text("source_url").notNull(),
+    title: text("title").notNull(),
+    poster: text("poster").notNull(),
+    totalEpisodes: integer("total_episodes").notNull().default(0),
+    status: libraryStatusEnum("status").notNull().default("plan_to_watch"),
+    addedAt: timestamp("added_at").defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("shared_library_pair_source_idx").on(table.user1Id, table.user2Id, table.sourceUrl),
+    index("shared_library_users_idx").on(table.user1Id, table.user2Id),
+  ],
+)
+
 export const watchedEpisodes = pgTable(
   "watched_episodes",
   {

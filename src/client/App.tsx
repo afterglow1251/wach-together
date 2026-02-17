@@ -8,9 +8,7 @@ import { FriendsWSProvider } from "./stores/friends-ws"
 import { ConfirmProvider } from "./components/ConfirmDialog"
 import AuthPage from "./routes/AuthPage"
 import HomePage from "./routes/HomePage"
-import LibraryPage from "./routes/LibraryPage"
 import FriendsPage from "./routes/FriendsPage"
-import SearchPage from "./routes/SearchPage"
 import RoomPage from "./routes/RoomPage"
 import AppLayout from "./components/layout/AppLayout"
 
@@ -47,22 +45,14 @@ export default function App() {
               </AuthGuard>
             )}
           />
+          <Route path="/search" component={() => <Navigate href="/friends" />} />
+          <Route path="/library" component={() => <Navigate href="/friends" />} />
           <Route
-            path="/search"
+            path="/friends/:friendId"
             component={() => (
               <AuthGuard>
                 <AppLayout>
-                  <SearchPage />
-                </AppLayout>
-              </AuthGuard>
-            )}
-          />
-          <Route
-            path="/library"
-            component={() => (
-              <AuthGuard>
-                <AppLayout>
-                  <LibraryPage />
+                  <FriendsPage />
                 </AppLayout>
               </AuthGuard>
             )}

@@ -2,15 +2,20 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen } from "@solidjs/testing-library"
 import { QueryClient, QueryClientProvider } from "@tanstack/solid-query"
 import { createSignal } from "solid-js"
-import { useLibrary, useAddToLibrary, useUpdateLibraryStatus, useRemoveFromLibrary } from "./library"
-import { mockLibraryItem } from "../../../tests/fixtures/mock-data"
+import {
+  useSharedLibrary,
+  useAddToSharedLibrary,
+  useUpdateSharedLibraryStatus,
+  useRemoveFromSharedLibrary,
+} from "./library"
+import { mockSharedLibraryItem } from "../../../tests/fixtures/mock-data"
 
 vi.mock("../services/api", () => ({
   api: {
-    getLibrary: vi.fn(),
-    addToLibrary: vi.fn(),
-    updateLibrary: vi.fn(),
-    removeFromLibrary: vi.fn(),
+    getSharedLibrary: vi.fn(),
+    addToSharedLibrary: vi.fn(),
+    updateSharedLibrary: vi.fn(),
+    removeFromSharedLibrary: vi.fn(),
   },
 }))
 
@@ -25,8 +30,11 @@ function createTestQueryClient() {
   })
 }
 
-function TestLibraryConsumer(props: { userId: number }) {
-  const query = useLibrary(() => props.userId)
+function TestSharedLibraryConsumer(props: { userId: number; friendId: number }) {
+  const query = useSharedLibrary(
+    () => props.userId,
+    () => props.friendId,
+  )
   return (
     <div>
       <span data-testid="loading">{query.isLoading ? "yes" : "no"}</span>
@@ -37,7 +45,7 @@ function TestLibraryConsumer(props: { userId: number }) {
 }
 
 function TestAddConsumer() {
-  const addMut = useAddToLibrary()
+  const addMut = useAddToSharedLibrary()
   const [status, setStatus] = createSignal("idle")
   return (
     <div>
@@ -46,7 +54,7 @@ function TestAddConsumer() {
         data-testid="add"
         onClick={async () => {
           try {
-            await addMut.mutateAsync({ userId: 1, sourceUrl: "https://uakino.best/test" })
+            await addMut.mutateAsync({ userId: 1, friendId: 2, sourceUrl: "https://uakino.best/test" })
             setStatus("success")
           } catch {
             setStatus("error")
@@ -60,7 +68,7 @@ function TestAddConsumer() {
 }
 
 function TestUpdateConsumer() {
-  const updateMut = useUpdateLibraryStatus()
+  const updateMut = useUpdateSharedLibraryStatus()
   const [status, setStatus] = createSignal("idle")
   return (
     <div>
@@ -83,7 +91,7 @@ function TestUpdateConsumer() {
 }
 
 function TestRemoveConsumer() {
-  const removeMut = useRemoveFromLibrary()
+  const removeMut = useRemoveFromSharedLibrary()
   const [status, setStatus] = createSignal("idle")
   return (
     <div>
@@ -105,7 +113,7 @@ function TestRemoveConsumer() {
   )
 }
 
-describe("useLibrary", () => {
+describe("useSharedLibrary", () => {
   let queryClient: QueryClient
 
   beforeEach(() => {
@@ -113,15 +121,15 @@ describe("useLibrary", () => {
     queryClient = createTestQueryClient()
   })
 
-  it("fetches library items", async () => {
-    ;(api.getLibrary as ReturnType<typeof vi.fn>).mockResolvedValue({
+  it("fetches shared library items", async () => {
+    ;(api.getSharedLibrary as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
-      items: [mockLibraryItem],
+      items: [mockSharedLibraryItem],
     })
 
     render(() => (
       <QueryClientProvider client={queryClient}>
-        <TestLibraryConsumer userId={1} />
+        <TestSharedLibraryConsumer userId={1} friendId={2} />
       </QueryClientProvider>
     ))
 
@@ -133,11 +141,11 @@ describe("useLibrary", () => {
   })
 
   it("returns empty array on error", async () => {
-    ;(api.getLibrary as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: false })
+    ;(api.getSharedLibrary as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: false })
 
     render(() => (
       <QueryClientProvider client={queryClient}>
-        <TestLibraryConsumer userId={1} />
+        <TestSharedLibraryConsumer userId={1} friendId={2} />
       </QueryClientProvider>
     ))
 
@@ -149,7 +157,7 @@ describe("useLibrary", () => {
   })
 })
 
-describe("useAddToLibrary", () => {
+describe("useAddToSharedLibrary", () => {
   let queryClient: QueryClient
 
   beforeEach(() => {
@@ -158,7 +166,7 @@ describe("useAddToLibrary", () => {
   })
 
   it("adds item successfully", async () => {
-    ;(api.addToLibrary as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: true, item: mockLibraryItem })
+    ;(api.addToSharedLibrary as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: true, item: mockSharedLibraryItem })
 
     render(() => (
       <QueryClientProvider client={queryClient}>
@@ -174,7 +182,7 @@ describe("useAddToLibrary", () => {
   })
 
   it("handles add failure", async () => {
-    ;(api.addToLibrary as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: false, error: "Failed" })
+    ;(api.addToSharedLibrary as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: false, error: "Failed" })
 
     render(() => (
       <QueryClientProvider client={queryClient}>
@@ -190,7 +198,7 @@ describe("useAddToLibrary", () => {
   })
 })
 
-describe("useUpdateLibraryStatus", () => {
+describe("useUpdateSharedLibraryStatus", () => {
   let queryClient: QueryClient
 
   beforeEach(() => {
@@ -199,9 +207,9 @@ describe("useUpdateLibraryStatus", () => {
   })
 
   it("updates status successfully", async () => {
-    ;(api.updateLibrary as ReturnType<typeof vi.fn>).mockResolvedValue({
+    ;(api.updateSharedLibrary as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
-      item: { ...mockLibraryItem, status: "watched" },
+      item: { ...mockSharedLibraryItem, status: "watched" },
     })
 
     render(() => (
@@ -218,7 +226,7 @@ describe("useUpdateLibraryStatus", () => {
   })
 })
 
-describe("useRemoveFromLibrary", () => {
+describe("useRemoveFromSharedLibrary", () => {
   let queryClient: QueryClient
 
   beforeEach(() => {
@@ -227,7 +235,7 @@ describe("useRemoveFromLibrary", () => {
   })
 
   it("removes item successfully", async () => {
-    ;(api.removeFromLibrary as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: true })
+    ;(api.removeFromSharedLibrary as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: true })
 
     render(() => (
       <QueryClientProvider client={queryClient}>
@@ -243,7 +251,7 @@ describe("useRemoveFromLibrary", () => {
   })
 
   it("handles remove failure", async () => {
-    ;(api.removeFromLibrary as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: false, error: "Not found" })
+    ;(api.removeFromSharedLibrary as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: false, error: "Not found" })
 
     render(() => (
       <QueryClientProvider client={queryClient}>

@@ -31,6 +31,13 @@ import type {
   FriendCancelResponse,
   SharedWatchesResponse,
   UserSearchResponse,
+  SharedLibraryResponse,
+  SharedLibraryAddRequest,
+  SharedLibraryAddResponse,
+  SharedLibraryUpdateRequest,
+  SharedLibraryUpdateResponse,
+  SharedLibraryDeleteRequest,
+  SharedLibraryDeleteResponse,
 } from "../../shared/api-types"
 
 function post(body: unknown) {
@@ -120,4 +127,24 @@ export const api = {
 
   getSharedWatches: (userId: number, friendId: number): Promise<SharedWatchesResponse> =>
     fetch(`/api/friends/shared?userId=${userId}&friendId=${friendId}`).then((r) => r.json()),
+
+  getSharedLibrary: (userId: number, friendId: number): Promise<SharedLibraryResponse> =>
+    fetch(`/api/shared-library?userId=${userId}&friendId=${friendId}`).then((r) => r.json()),
+
+  addToSharedLibrary: (data: SharedLibraryAddRequest): Promise<SharedLibraryAddResponse> =>
+    fetch("/api/shared-library", post(data)).then((r) => r.json()),
+
+  updateSharedLibrary: (data: SharedLibraryUpdateRequest): Promise<SharedLibraryUpdateResponse> =>
+    fetch("/api/shared-library", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }).then((r) => r.json()),
+
+  removeFromSharedLibrary: (data: SharedLibraryDeleteRequest): Promise<SharedLibraryDeleteResponse> =>
+    fetch("/api/shared-library", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }).then((r) => r.json()),
 }

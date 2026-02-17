@@ -4,6 +4,7 @@ import type {
   RoomInfo,
   User,
   LibraryItem,
+  SharedLibraryItem,
   Friend,
   FriendRequest,
   SentFriendRequest,
@@ -56,6 +57,19 @@ export const mockRoomInfo: RoomInfo = {
 export const mockLibraryItem: LibraryItem = {
   id: 1,
   userId: 1,
+  sourceUrl: "https://uakino.best/film/test",
+  title: "Test Movie",
+  poster: "/uploads/poster.jpg",
+  totalEpisodes: 12,
+  status: "watching",
+  addedAt: "2025-01-01T00:00:00.000Z",
+  watchedCount: 3,
+}
+
+export const mockSharedLibraryItem: SharedLibraryItem = {
+  id: 1,
+  user1Id: 1,
+  user2Id: 2,
   sourceUrl: "https://uakino.best/film/test",
   title: "Test Movie",
   poster: "/uploads/poster.jpg",

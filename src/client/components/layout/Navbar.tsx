@@ -1,8 +1,13 @@
 import { A } from "@solidjs/router"
+import { Show } from "solid-js"
 import { useAuth } from "../../stores/auth"
+import { useFriendRequests } from "../../queries/friends"
 
 export default function Navbar() {
   const auth = useAuth()
+  const userId = () => auth.user()?.id
+  const friendRequests = useFriendRequests(userId)
+  const requestCount = () => friendRequests.data?.length ?? 0
 
   return (
     <nav class="h-[52px] flex items-center px-5 relative z-10 shrink-0">
@@ -24,25 +29,19 @@ export default function Navbar() {
           Home
         </A>
         <A
-          href="/search"
-          class="px-3 py-1.5 rounded-md text-[13px] font-medium text-muted transition-colors hover:text-text hover:bg-hover"
-          activeClass="!text-accent !bg-accent/10"
-        >
-          Browse
-        </A>
-        <A
-          href="/library"
-          class="px-3 py-1.5 rounded-md text-[13px] font-medium text-muted transition-colors hover:text-text hover:bg-hover"
-          activeClass="!text-accent !bg-accent/10"
-        >
-          Library
-        </A>
-        <A
           href="/friends"
-          class="px-3 py-1.5 rounded-md text-[13px] font-medium text-muted transition-colors hover:text-text hover:bg-hover"
+          class="px-3 py-1.5 rounded-md text-[13px] font-medium text-muted transition-colors hover:text-text hover:bg-hover inline-flex items-center"
           activeClass="!text-accent !bg-accent/10"
         >
           Friends
+          <Show when={requestCount() > 0}>
+            <span
+              class="bg-accent text-white text-[10px] font-bold min-w-[18px] h-[18px] rounded-full inline-flex items-center justify-center ml-1 shadow-[0_0_8px_var(--color-accent-glow)]"
+              style={{ animation: "badge-pulse 2s ease-in-out infinite" }}
+            >
+              {requestCount()}
+            </span>
+          </Show>
         </A>
       </div>
 

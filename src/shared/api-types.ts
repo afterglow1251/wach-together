@@ -1,6 +1,7 @@
 import type {
   LibraryItem,
   LibraryStatus,
+  SharedLibraryItem,
   ParsedShow,
   SearchResultItem,
   User,
@@ -178,6 +179,46 @@ export interface FriendCancelResponse {
 export interface SharedWatchesResponse {
   ok: boolean
   items?: SharedWatchItem[]
+  error?: string
+}
+
+// GET /api/shared-library?userId=&friendId=
+export interface SharedLibraryResponse {
+  ok: boolean
+  items?: SharedLibraryItem[]
+  error?: string
+}
+
+// POST /api/shared-library
+export interface SharedLibraryAddRequest {
+  userId: number
+  friendId: number
+  sourceUrl: string
+  status?: LibraryStatus
+}
+export interface SharedLibraryAddResponse {
+  ok: boolean
+  item?: SharedLibraryItem
+  error?: string
+}
+
+// PATCH /api/shared-library
+export interface SharedLibraryUpdateRequest {
+  id: number
+  status: LibraryStatus
+}
+export interface SharedLibraryUpdateResponse {
+  ok: boolean
+  item?: SharedLibraryItem
+  error?: string
+}
+
+// DELETE /api/shared-library
+export interface SharedLibraryDeleteRequest {
+  id: number
+}
+export interface SharedLibraryDeleteResponse {
+  ok: boolean
   error?: string
 }
 
