@@ -1,6 +1,5 @@
 import { Show, For, createSignal, onCleanup } from "solid-js"
-import { A } from "@solidjs/router"
-import { Copy, Home, BookOpen, Search, Share2 } from "lucide-solid"
+import { Copy, Share2 } from "lucide-solid"
 import toast from "../../lib/toast"
 
 export default function RoomHeader(props: { code: string; clientCount: number; viewers: string[]; isHost: boolean }) {
@@ -29,17 +28,13 @@ export default function RoomHeader(props: { code: string; clientCount: number; v
   return (
     <div class="px-4 py-3 border-b border-border relative z-20">
       <div class="flex items-center justify-between mb-2">
-        <div class="flex items-center gap-2">
-          <A href="/" class="text-muted hover:text-accent transition-colors" title="Home">
-            <Home size={15} />
-          </A>
-          <A href="/search" class="text-muted hover:text-accent transition-colors" title="Browse">
-            <Search size={15} />
-          </A>
-          <A href="/library" class="text-muted hover:text-accent transition-colors" title="Library">
-            <BookOpen size={15} />
-          </A>
-        </div>
+        <a
+          href="/"
+          class="text-accent hover:text-accent/80 transition-colors text-sm"
+          style={{ "-webkit-text-fill-color": "var(--color-accent)" }}
+        >
+          ♥
+        </a>
         <Show when={props.isHost}>
           <span
             class="bg-accent text-white text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wider shadow-[0_0_8px_var(--color-accent-glow)]"
