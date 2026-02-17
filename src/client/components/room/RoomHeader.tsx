@@ -1,5 +1,5 @@
 import { Show, For, createSignal, onCleanup } from "solid-js"
-import { Copy, Share2 } from "lucide-solid"
+import { Share2 } from "lucide-solid"
 import toast from "../../lib/toast"
 
 export default function RoomHeader(props: { code: string; clientCount: number; viewers: string[]; isHost: boolean }) {
@@ -45,15 +45,13 @@ export default function RoomHeader(props: { code: string; clientCount: number; v
         </Show>
       </div>
       <div class="flex items-center gap-2">
-        <span class="text-base font-bold font-mono tracking-widest" style={{ color: "var(--color-accent)" }}>
-          {props.code}
-        </span>
         <button
           onClick={copyCode}
-          class="bg-transparent border-none text-muted cursor-pointer p-0.5 rounded hover:text-text transition-colors"
-          title="Copy code"
+          class="text-base font-bold font-mono tracking-widest bg-transparent border-none cursor-pointer p-0 hover:opacity-70 transition-opacity"
+          style={{ color: "var(--color-accent)" }}
+          title="Click to copy code"
         >
-          <Copy size={12} />
+          {props.code}
         </button>
         <button
           onClick={shareLink}
