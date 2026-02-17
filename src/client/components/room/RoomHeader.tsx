@@ -1,29 +1,29 @@
-import { Show, For, createSignal, onCleanup } from "solid-js";
-import { A } from "@solidjs/router";
-import { Copy, Home, BookOpen, Search, Share2 } from "lucide-solid";
-import toast from "../../lib/toast";
+import { Show, For, createSignal, onCleanup } from "solid-js"
+import { A } from "@solidjs/router"
+import { Copy, Home, BookOpen, Search, Share2 } from "lucide-solid"
+import toast from "../../lib/toast"
 
 export default function RoomHeader(props: { code: string; clientCount: number; viewers: string[]; isHost: boolean }) {
-  const [showViewers, setShowViewers] = createSignal(false);
-  let dropdownRef!: HTMLDivElement;
-  let buttonRef!: HTMLButtonElement;
+  const [showViewers, setShowViewers] = createSignal(false)
+  let dropdownRef!: HTMLDivElement
+  let buttonRef!: HTMLButtonElement
 
   function handleClickOutside(e: MouseEvent) {
     if (showViewers() && !dropdownRef?.contains(e.target as Node) && !buttonRef?.contains(e.target as Node)) {
-      setShowViewers(false);
+      setShowViewers(false)
     }
   }
 
-  document.addEventListener("click", handleClickOutside);
-  onCleanup(() => document.removeEventListener("click", handleClickOutside));
+  document.addEventListener("click", handleClickOutside)
+  onCleanup(() => document.removeEventListener("click", handleClickOutside))
 
   function copyCode() {
-    navigator.clipboard.writeText(props.code).then(() => toast("Room code copied!"));
+    navigator.clipboard.writeText(props.code).then(() => toast("Room code copied!"))
   }
 
   function shareLink() {
-    const link = `${window.location.origin}/room/${props.code}`;
-    navigator.clipboard.writeText(link).then(() => toast("Link copied!"));
+    const link = `${window.location.origin}/room/${props.code}`
+    navigator.clipboard.writeText(link).then(() => toast("Link copied!"))
   }
 
   return (
@@ -50,11 +50,21 @@ export default function RoomHeader(props: { code: string; clientCount: number; v
         </Show>
       </div>
       <div class="flex items-center gap-2">
-        <span class="text-base font-bold font-mono tracking-widest" style={{ color: "var(--color-accent)" }}>{props.code}</span>
-        <button onClick={copyCode} class="bg-transparent border-none text-muted cursor-pointer p-0.5 rounded hover:text-text transition-colors" title="Copy code">
+        <span class="text-base font-bold font-mono tracking-widest" style={{ color: "var(--color-accent)" }}>
+          {props.code}
+        </span>
+        <button
+          onClick={copyCode}
+          class="bg-transparent border-none text-muted cursor-pointer p-0.5 rounded hover:text-text transition-colors"
+          title="Copy code"
+        >
           <Copy size={12} />
         </button>
-        <button onClick={shareLink} class="bg-transparent border-none text-muted cursor-pointer p-0.5 rounded hover:text-text transition-colors" title="Copy join link">
+        <button
+          onClick={shareLink}
+          class="bg-transparent border-none text-muted cursor-pointer p-0.5 rounded hover:text-text transition-colors"
+          title="Copy join link"
+        >
           <Share2 size={12} />
         </button>
         <div class="ml-auto relative">
@@ -66,7 +76,10 @@ export default function RoomHeader(props: { code: string; clientCount: number; v
             {props.clientCount} {props.clientCount === 1 ? "viewer" : "viewers"}
           </button>
           <Show when={showViewers()}>
-            <div ref={dropdownRef} class="absolute right-0 top-full mt-1.5 bg-card border border-border rounded-lg px-3 py-2 shadow-lg z-10 min-w-[120px] max-w-[200px]">
+            <div
+              ref={dropdownRef}
+              class="absolute right-0 top-full mt-1.5 bg-card border border-border rounded-lg px-3 py-2 shadow-lg z-10 min-w-[120px] max-w-[200px]"
+            >
               <For each={props.viewers}>
                 {(name) => <div class="text-[11px] text-text py-0.5 truncate">{name}</div>}
               </For>
@@ -75,5 +88,5 @@ export default function RoomHeader(props: { code: string; clientCount: number; v
         </div>
       </div>
     </div>
-  );
+  )
 }

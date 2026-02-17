@@ -1,8 +1,9 @@
-import type { Episode, ParsedShow, RoomInfo } from "./types";
+import type { Episode, ParsedShow, RoomInfo } from "./types"
 
 // Client → Server
 export type WSClientMessage =
-  | { type: "join"; clientId: string; roomCode: string; name: string }
+  | { type: "identify"; clientId: string; userId: number; name: string }
+  | { type: "join"; clientId: string; roomCode: string; name: string; userId?: number }
   | { type: "set-show"; clientId: string; show: ParsedShow; sourceUrl: string }
   | { type: "select-episode"; clientId: string; episode: Episode }
   | { type: "stream-ready"; clientId: string; streamUrl: string }
@@ -14,7 +15,7 @@ export type WSClientMessage =
   | { type: "chat"; clientId: string; text: string }
   | { type: "reaction"; clientId: string; emoji: string }
   | { type: "typing"; clientId: string }
-  | { type: "disconnect"; clientId: string };
+  | { type: "disconnect"; clientId: string }
 
 // Server → Client
 export type WSServerMessage =
@@ -30,4 +31,8 @@ export type WSServerMessage =
   | { type: "chat"; name: string; text: string; time: number }
   | { type: "reaction"; name: string; emoji: string }
   | { type: "typing"; name: string }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  | { type: "friend-request-received"; from: { id: number; username: string } }
+  | { type: "friend-request-cancelled"; by: number }
+  | { type: "friend-accepted"; by: { id: number; username: string } }
+  | { type: "friend-removed"; by: { id: number; username: string } }

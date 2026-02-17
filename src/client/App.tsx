@@ -1,29 +1,34 @@
-import { Router, Route, Navigate } from "@solidjs/router";
-import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
-import { Show } from "solid-js";
-import { Toaster } from "solid-toast";
-import { AuthProvider, useAuth } from "./stores/auth";
-import { RoomProvider } from "./stores/room";
-import AuthPage from "./routes/AuthPage";
-import HomePage from "./routes/HomePage";
-import LibraryPage from "./routes/LibraryPage";
-import SearchPage from "./routes/SearchPage";
-import RoomPage from "./routes/RoomPage";
-import AppLayout from "./components/layout/AppLayout";
+import { Router, Route, Navigate } from "@solidjs/router"
+import { QueryClient, QueryClientProvider } from "@tanstack/solid-query"
+import { Show, type JSX } from "solid-js"
+import { Toaster } from "solid-toast"
+import { AuthProvider, useAuth } from "./stores/auth"
+import { RoomProvider } from "./stores/room"
+import { FriendsWSProvider } from "./stores/friends-ws"
+import { ConfirmProvider } from "./components/ConfirmDialog"
+import AuthPage from "./routes/AuthPage"
+import HomePage from "./routes/HomePage"
+import LibraryPage from "./routes/LibraryPage"
+import FriendsPage from "./routes/FriendsPage"
+import SearchPage from "./routes/SearchPage"
+import RoomPage from "./routes/RoomPage"
+import AppLayout from "./components/layout/AppLayout"
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000 } },
-});
+})
 
-function AuthGuard(props: { children: any }) {
-  const auth = useAuth();
+function AuthGuard(props: { children: JSX.Element }) {
+  const auth = useAuth()
   return (
     <Show when={auth.isLoggedIn()} fallback={<Navigate href="/auth" />}>
-      <RoomProvider username={() => auth.user()?.username ?? "Guest"}>
-        {props.children}
+      <RoomProvider username={() => auth.user()?.username ?? "Guest"} userId={() => auth.user()?.id}>
+        <FriendsWSProvider>
+          <ConfirmProvider>{props.children}</ConfirmProvider>
+        </FriendsWSProvider>
       </RoomProvider>
     </Show>
-  );
+  )
 }
 
 export default function App() {
@@ -32,18 +37,54 @@ export default function App() {
       <AuthProvider>
         <Router>
           <Route path="/auth" component={AuthPage} />
-          <Route path="/" component={() => (
-            <AuthGuard><AppLayout><HomePage /></AppLayout></AuthGuard>
-          )} />
-          <Route path="/search" component={() => (
-            <AuthGuard><AppLayout><SearchPage /></AppLayout></AuthGuard>
-          )} />
-          <Route path="/library" component={() => (
-            <AuthGuard><AppLayout><LibraryPage /></AppLayout></AuthGuard>
-          )} />
-          <Route path="/room/:code" component={() => (
-            <AuthGuard><RoomPage /></AuthGuard>
-          )} />
+          <Route
+            path="/"
+            component={() => (
+              <AuthGuard>
+                <AppLayout>
+                  <HomePage />
+                </AppLayout>
+              </AuthGuard>
+            )}
+          />
+          <Route
+            path="/search"
+            component={() => (
+              <AuthGuard>
+                <AppLayout>
+                  <SearchPage />
+                </AppLayout>
+              </AuthGuard>
+            )}
+          />
+          <Route
+            path="/library"
+            component={() => (
+              <AuthGuard>
+                <AppLayout>
+                  <LibraryPage />
+                </AppLayout>
+              </AuthGuard>
+            )}
+          />
+          <Route
+            path="/friends"
+            component={() => (
+              <AuthGuard>
+                <AppLayout>
+                  <FriendsPage />
+                </AppLayout>
+              </AuthGuard>
+            )}
+          />
+          <Route
+            path="/room/:code"
+            component={() => (
+              <AuthGuard>
+                <RoomPage />
+              </AuthGuard>
+            )}
+          />
           <Route path="*" component={() => <Navigate href="/" />} />
         </Router>
         <Toaster
@@ -61,5 +102,5 @@ export default function App() {
         />
       </AuthProvider>
     </QueryClientProvider>
-  );
+  )
 }

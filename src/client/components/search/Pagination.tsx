@@ -1,10 +1,10 @@
-import { Show } from "solid-js";
-import { ChevronLeft, ChevronRight } from "lucide-solid";
+import { Show } from "solid-js"
+import { ChevronLeft, ChevronRight } from "lucide-solid"
 
 interface Props {
-  current: number;
-  hasMore: boolean;
-  onChange: (page: number) => void;
+  current: number
+  hasMore: boolean
+  onChange: (page: number) => void
 }
 
 export default function Pagination(props: Props) {
@@ -32,5 +32,5 @@ export default function Pagination(props: Props) {
         </button>
       </Show>
     </div>
-  );
+  )
 }

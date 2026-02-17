@@ -1,118 +1,118 @@
-import { createSignal, createEffect, Show, onMount } from "solid-js";
-import { useParams, useSearchParams, useNavigate } from "@solidjs/router";
-import { useQueryClient } from "@tanstack/solid-query";
-import { useAuth } from "../stores/auth";
-import { useRoom } from "../stores/room";
-import { useWatchedEpisodes, useToggleWatched } from "../queries/watched";
-import { api } from "../services/api";
-import toast from "../lib/toast";
-import RoomHeader from "../components/room/RoomHeader";
-import UrlInput from "../components/room/UrlInput";
-import ShowInfo from "../components/room/ShowInfo";
-import DubSelector from "../components/room/DubSelector";
-import EpisodeList from "../components/room/EpisodeList";
-import Chat from "../components/room/Chat";
-import VideoPlayer from "../components/room/VideoPlayer";
-import SeekOverlay from "../components/room/SeekOverlay";
-import ReactionBar from "../components/room/ReactionBar";
-import FullscreenChat from "../components/room/FullscreenChat";
-import type { Episode } from "../../shared/types";
+import { createSignal, createEffect, Show, onMount } from "solid-js"
+import { useParams, useSearchParams, useNavigate } from "@solidjs/router"
+import { useQueryClient } from "@tanstack/solid-query"
+import { useAuth } from "../stores/auth"
+import { useRoom } from "../stores/room"
+import { useWatchedEpisodes, useToggleWatched } from "../queries/watched"
+import { api } from "../services/api"
+import toast from "../lib/toast"
+import RoomHeader from "../components/room/RoomHeader"
+import UrlInput from "../components/room/UrlInput"
+import ShowInfo from "../components/room/ShowInfo"
+import DubSelector from "../components/room/DubSelector"
+import EpisodeList from "../components/room/EpisodeList"
+import Chat from "../components/room/Chat"
+import VideoPlayer from "../components/room/VideoPlayer"
+import SeekOverlay from "../components/room/SeekOverlay"
+import ReactionBar from "../components/room/ReactionBar"
+import FullscreenChat from "../components/room/FullscreenChat"
+import type { Episode } from "../../shared/types"
 
 export default function RoomPage() {
-  const params = useParams();
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const auth = useAuth();
-  const room = useRoom();
-  const [dubIndex, setDubIndex] = createSignal(0);
-  const [autoMarkedId, setAutoMarkedId] = createSignal<string | null>(null);
+  const params = useParams()
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const auth = useAuth()
+  const room = useRoom()
+  const [dubIndex, setDubIndex] = createSignal(0)
+  const [autoMarkedId, setAutoMarkedId] = createSignal<string | null>(null)
 
-  const qc = useQueryClient();
-  const userId = () => auth.user()?.id;
-  const sourceUrl = () => room.state.sourceUrl ?? undefined;
-  const watched = useWatchedEpisodes(userId, sourceUrl);
-  const toggleWatched = useToggleWatched();
+  const qc = useQueryClient()
+  const userId = () => auth.user()?.id
+  const sourceUrl = () => room.state.sourceUrl ?? undefined
+  const watched = useWatchedEpisodes(userId, sourceUrl)
+  const toggleWatched = useToggleWatched()
   // Join room on mount
   onMount(() => {
     if (!room.state.connected && params.code) {
-      room.joinRoom(params.code, auth.user()!.username);
+      room.joinRoom(params.code, auth.user()!.username)
     }
-  });
+  })
 
   // Handle room-info redirect (room code might differ from URL param)
   createEffect(() => {
     if (room.state.roomCode && room.state.roomCode !== params.code) {
-      navigate(`/room/${room.state.roomCode}`, { replace: true });
+      navigate(`/room/${room.state.roomCode}`, { replace: true })
     }
-  });
+  })
 
   // Auto-load show from library URL param
   createEffect(() => {
-    const loadUrl = searchParams.load;
+    const loadUrl = searchParams.load
     if (typeof loadUrl === "string" && loadUrl && room.state.isHost && room.state.connected && !room.state.show) {
-      handleLoadUrl(loadUrl);
+      handleLoadUrl(loadUrl)
     }
-  });
+  })
 
   async function handleLoadUrl(url: string) {
     try {
-      const resp = await api.parse({ url });
+      const resp = await api.parse({ url })
       if (resp.ok && resp.show) {
-        room.setShow(resp.show, url);
-        const count = resp.show.dubs.reduce((a, d) => a + d.episodes.length, 0);
-        toast(`Found ${count} episodes`);
+        room.setShow(resp.show, url)
+        const count = resp.show.dubs.reduce((a, d) => a + d.episodes.length, 0)
+        toast(`Found ${count} episodes`)
       } else {
-        toast.error(resp.error ?? "Failed to load");
+        toast.error(resp.error ?? "Failed to load")
       }
     } catch {
-      toast.error("Connection error");
+      toast.error("Connection error")
     }
   }
 
   async function handleEpisodeSelect(ep: Episode) {
-    room.selectEpisode(ep);
-    setAutoMarkedId(null);
+    room.selectEpisode(ep)
+    setAutoMarkedId(null)
     try {
-      const resp = await api.stream({ url: ep.url });
+      const resp = await api.stream({ url: ep.url })
       if (resp.ok && resp.streamUrl) {
-        room.streamReady(resp.streamUrl);
+        room.streamReady(resp.streamUrl)
       } else {
-        toast.error(resp.error ?? "Failed to get stream");
+        toast.error(resp.error ?? "Failed to get stream")
       }
     } catch {
-      toast.error("Server connection error");
+      toast.error("Server connection error")
     }
   }
 
   function handleToggleWatched(episodeId: string) {
-    if (!userId() || !sourceUrl()) return;
-    const isWatched = watched.data?.has(episodeId) ?? false;
+    if (!userId() || !sourceUrl()) return
+    const isWatched = watched.data?.has(episodeId) ?? false
     toggleWatched.mutate({
       userId: userId()!,
       sourceUrl: sourceUrl()!,
       episodeId,
       watched: isWatched,
-    });
+    })
   }
 
   function handleTimeUpdate(time: number, duration: number) {
-    if (!room.state.currentEpisode || !duration) return;
-    const progress = time / duration;
+    if (!room.state.currentEpisode || !duration) return
+    const progress = time / duration
     if (progress >= 0.9) {
-      const epId = room.state.currentEpisode.id;
-      if (autoMarkedId() !== epId && !(watched.data?.has(epId))) {
-        setAutoMarkedId(epId);
+      const epId = room.state.currentEpisode.id
+      if (autoMarkedId() !== epId && !watched.data?.has(epId)) {
+        setAutoMarkedId(epId)
         if (userId() && sourceUrl()) {
-          api.markWatched({ userId: userId()!, sourceUrl: sourceUrl()!, episodeId: epId }).catch(() => {});
-          qc.invalidateQueries({ queryKey: ["watched"] });
+          api.markWatched({ userId: userId()!, sourceUrl: sourceUrl()!, episodeId: epId }).catch(() => {})
+          qc.invalidateQueries({ queryKey: ["watched"] })
         }
       }
     }
   }
 
-  const currentDub = () => room.state.show?.dubs[dubIndex()] ?? null;
-  const episodes = () => currentDub()?.episodes ?? [];
-  const watchedIds = () => watched.data ?? new Set<string>();
+  const currentDub = () => room.state.show?.dubs[dubIndex()] ?? null
+  const episodes = () => currentDub()?.episodes ?? []
+  const watchedIds = () => watched.data ?? new Set<string>()
 
   // Sidebar hearts
   const sidebarHearts = [
@@ -121,7 +121,7 @@ export default function RoomPage() {
     { left: "55%", dur: 12, delay: 8 },
     { left: "75%", dur: 16, delay: 2 },
     { left: "90%", dur: 20, delay: 6 },
-  ];
+  ]
 
   return (
     <div class="flex h-screen w-screen max-md:flex-col">
@@ -137,11 +137,18 @@ export default function RoomPage() {
                 animation: `sidebar-heart-float ${h.dur}s linear infinite`,
                 "animation-delay": `${h.delay}s`,
               }}
-            >♥</span>
+            >
+              ♥
+            </span>
           ))}
         </div>
 
-        <RoomHeader code={room.state.roomCode ?? "-----"} clientCount={room.state.clientCount} viewers={room.state.viewers} isHost={room.state.isHost} />
+        <RoomHeader
+          code={room.state.roomCode ?? "-----"}
+          clientCount={room.state.clientCount}
+          viewers={room.state.viewers}
+          isHost={room.state.isHost}
+        />
 
         <Show when={room.state.isHost}>
           <UrlInput initialUrl={room.state.sourceUrl ?? ""} onLoad={handleLoadUrl} />
@@ -150,11 +157,7 @@ export default function RoomPage() {
         <ShowInfo title={room.state.show?.title} />
 
         <Show when={room.state.show}>
-          <DubSelector
-            dubs={room.state.show!.dubs}
-            value={dubIndex()}
-            onChange={setDubIndex}
-          />
+          <DubSelector dubs={room.state.show!.dubs} value={dubIndex()} onChange={setDubIndex} />
         </Show>
 
         <Show when={episodes().length > 0}>
@@ -199,9 +202,19 @@ export default function RoomPage() {
 
           {/* Player overlay — shown when no video */}
           <Show when={!room.state.streamUrl}>
-            <div class="absolute inset-0 z-30 flex items-center justify-center pointer-events-none" style={{ background: "radial-gradient(ellipse at 50% 50%, rgba(232, 67, 147, 0.06) 0%, rgba(0, 0, 0, 0.8) 70%)" }}>
+            <div
+              class="absolute inset-0 z-30 flex items-center justify-center pointer-events-none"
+              style={{
+                background: "radial-gradient(ellipse at 50% 50%, rgba(232, 67, 147, 0.06) 0%, rgba(0, 0, 0, 0.8) 70%)",
+              }}
+            >
               <div class="text-center">
-                <span class="block text-5xl text-accent mb-3" style={{ animation: "heart-pulse 2s ease-in-out infinite" }}>♥</span>
+                <span
+                  class="block text-5xl text-accent mb-3"
+                  style={{ animation: "heart-pulse 2s ease-in-out infinite" }}
+                >
+                  ♥
+                </span>
                 <p class="text-muted text-[15px] tracking-wide">Pick something to watch together</p>
               </div>
             </div>
@@ -209,5 +222,5 @@ export default function RoomPage() {
         </VideoPlayer>
       </main>
     </div>
-  );
+  )
 }

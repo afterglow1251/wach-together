@@ -1,4 +1,4 @@
-import { Show } from "solid-js";
+import { Show } from "solid-js"
 
 export default function ShowInfo(props: { title?: string }) {
   return (
@@ -7,5 +7,5 @@ export default function ShowInfo(props: { title?: string }) {
         <h3 class="text-[15px] font-semibold leading-relaxed text-gradient-subtle">{props.title}</h3>
       </div>
     </Show>
-  );
+  )
 }

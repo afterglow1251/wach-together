@@ -1,43 +1,41 @@
-import { createSignal } from "solid-js";
-import { useNavigate } from "@solidjs/router";
-import { useAuth } from "../stores/auth";
-import { useRoom } from "../stores/room";
-import Card from "../components/layout/Card";
+import { createSignal } from "solid-js"
+import { useNavigate } from "@solidjs/router"
+import { useAuth } from "../stores/auth"
+import { useRoom } from "../stores/room"
+import Card from "../components/layout/Card"
 
 export default function HomePage() {
-  const auth = useAuth();
-  const room = useRoom();
-  const navigate = useNavigate();
-  const [joinCode, setJoinCode] = createSignal("");
+  const auth = useAuth()
+  const room = useRoom()
+  const navigate = useNavigate()
+  const [joinCode, setJoinCode] = createSignal("")
 
   function handleCreate() {
-    room.createRoom(auth.user()!.username);
+    room.createRoom(auth.user()!.username)
     const unwatch = setInterval(() => {
       if (room.state.roomCode) {
-        clearInterval(unwatch);
-        navigate(`/room/${room.state.roomCode}`);
+        clearInterval(unwatch)
+        navigate(`/room/${room.state.roomCode}`)
       }
-    }, 100);
+    }, 100)
   }
 
   function handleJoin() {
-    const code = joinCode().trim().toUpperCase();
-    if (!code) return;
-    room.joinRoom(code, auth.user()!.username);
+    const code = joinCode().trim().toUpperCase()
+    if (!code) return
+    room.joinRoom(code, auth.user()!.username)
     const unwatch = setInterval(() => {
       if (room.state.roomCode) {
-        clearInterval(unwatch);
-        navigate(`/room/${room.state.roomCode}`);
+        clearInterval(unwatch)
+        navigate(`/room/${room.state.roomCode}`)
       }
-    }, 100);
+    }, 100)
   }
 
   return (
     <div class="flex flex-col items-center justify-center h-full px-5">
       <Card>
-        <p class="text-muted text-sm mb-6">
-          Hey, {auth.user()?.username}! Ready for movie night?
-        </p>
+        <p class="text-muted text-sm mb-6">Hey, {auth.user()?.username}! Ready for movie night?</p>
 
         <div class="flex flex-col gap-4">
           <button
@@ -76,5 +74,5 @@ export default function HomePage() {
         </div>
       </Card>
     </div>
-  );
+  )
 }

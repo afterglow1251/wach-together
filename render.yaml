@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: watch-together
+    runtime: docker
+    repo: https://github.com/afterglow1251/wach-together
+    branch: main
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: DATABASE_URL
+        sync: false

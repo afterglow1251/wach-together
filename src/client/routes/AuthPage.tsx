@@ -1,39 +1,39 @@
-import { createSignal } from "solid-js";
-import { useNavigate } from "@solidjs/router";
-import { useAuth } from "../stores/auth";
-import FloatingHearts from "../components/layout/FloatingHearts";
-import Card from "../components/layout/Card";
+import { createSignal } from "solid-js"
+import { useNavigate } from "@solidjs/router"
+import { useAuth } from "../stores/auth"
+import FloatingHearts from "../components/layout/FloatingHearts"
+import Card from "../components/layout/Card"
 
 export default function AuthPage() {
-  const auth = useAuth();
-  const navigate = useNavigate();
-  const [username, setUsername] = createSignal("");
-  const [password, setPassword] = createSignal("");
-  const [error, setError] = createSignal("");
-  const [loading, setLoading] = createSignal(false);
+  const auth = useAuth()
+  const navigate = useNavigate()
+  const [username, setUsername] = createSignal("")
+  const [password, setPassword] = createSignal("")
+  const [error, setError] = createSignal("")
+  const [loading, setLoading] = createSignal(false)
 
   // Redirect if already logged in
-  if (auth.isLoggedIn()) navigate("/", { replace: true });
+  if (auth.isLoggedIn()) navigate("/", { replace: true })
 
   async function handleSubmit(e: Event) {
-    e.preventDefault();
+    e.preventDefault()
     if (!username().trim() || !password()) {
-      setError("Enter username and password");
-      return;
+      setError("Enter username and password")
+      return
     }
-    setLoading(true);
-    setError("");
+    setLoading(true)
+    setError("")
     try {
-      const result = await auth.login(username().trim(), password());
+      const result = await auth.login(username().trim(), password())
       if (result.ok) {
-        navigate("/", { replace: true });
+        navigate("/", { replace: true })
       } else {
-        setError(result.error ?? "Login failed");
+        setError(result.error ?? "Login failed")
       }
     } catch {
-      setError("Connection error");
+      setError("Connection error")
     }
-    setLoading(false);
+    setLoading(false)
   }
 
   return (
@@ -41,7 +41,11 @@ export default function AuthPage() {
       <FloatingHearts />
       <Card>
         <h1 class="text-[28px] font-bold mb-1.5 text-gradient">
-          Watch <span class="text-accent" style={{ "-webkit-text-fill-color": "var(--color-accent)" }}>♥</span> Together
+          Watch{" "}
+          <span class="text-accent" style={{ "-webkit-text-fill-color": "var(--color-accent)" }}>
+            ♥
+          </span>{" "}
+          Together
         </h1>
         <p class="text-muted text-sm mb-8">Sign in to your movie night</p>
 
@@ -86,5 +90,5 @@ export default function AuthPage() {
         <p class="text-muted text-xs mt-4">No account? It'll be created automatically</p>
       </Card>
     </div>
-  );
+  )
 }

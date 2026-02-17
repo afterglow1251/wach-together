@@ -1,62 +1,64 @@
-import { createSignal, Show, For, createMemo } from "solid-js";
-import { useNavigate } from "@solidjs/router";
-import { useAuth } from "../stores/auth";
-import { useRoom } from "../stores/room";
-import { useLibrary, useUpdateLibraryStatus, useRemoveFromLibrary } from "../queries/library";
-import toast from "../lib/toast";
-import { MoreHorizontal } from "lucide-solid";
-import type { LibraryItem, LibraryStatus } from "../../shared/types";
+import { createSignal, Show, For, createMemo } from "solid-js"
+import { useNavigate } from "@solidjs/router"
+import { useAuth } from "../stores/auth"
+import { useRoom } from "../stores/room"
+import { useLibrary, useUpdateLibraryStatus, useRemoveFromLibrary } from "../queries/library"
+import toast from "../lib/toast"
+import { MoreHorizontal } from "lucide-solid"
+import type { LibraryItem, LibraryStatus } from "../../shared/types"
 
 const STATUS_LABELS: Record<string, string> = {
   plan_to_watch: "Plan",
   watching: "Watching",
   watched: "Watched",
-};
+}
 
 export default function LibraryPage() {
-  const auth = useAuth();
-  const room = useRoom();
-  const navigate = useNavigate();
-  const [filter, setFilter] = createSignal<string>("all");
-  const [menuItem, setMenuItem] = createSignal<{ item: LibraryItem; x: number; y: number } | null>(null);
+  const auth = useAuth()
+  const room = useRoom()
+  const navigate = useNavigate()
+  const [filter, setFilter] = createSignal<string>("all")
+  const [menuItem, setMenuItem] = createSignal<{ item: LibraryItem; x: number; y: number } | null>(null)
 
-  const userId = () => auth.user()?.id;
-  const library = useLibrary(userId);
-  const updateStatus = useUpdateLibraryStatus();
-  const removeLib = useRemoveFromLibrary();
+  const userId = () => auth.user()?.id
+  const library = useLibrary(userId)
+  const updateStatus = useUpdateLibraryStatus()
+  const removeLib = useRemoveFromLibrary()
 
   const filtered = createMemo(() => {
-    const items = library.data ?? [];
-    return filter() === "all" ? items : items.filter(i => i.status === filter());
-  });
+    const items = library.data ?? []
+    return filter() === "all" ? items : items.filter((i) => i.status === filter())
+  })
 
   function handleCardClick(item: LibraryItem) {
-    room.createRoom(auth.user()!.username);
+    room.createRoom(auth.user()!.username)
     const unwatch = setInterval(() => {
       if (room.state.roomCode) {
-        clearInterval(unwatch);
-        navigate(`/room/${room.state.roomCode}?load=${encodeURIComponent(item.sourceUrl)}`);
+        clearInterval(unwatch)
+        navigate(`/room/${room.state.roomCode}?load=${encodeURIComponent(item.sourceUrl)}`)
       }
-    }, 100);
+    }, 100)
   }
 
   function openMenu(e: MouseEvent, item: LibraryItem) {
-    e.stopPropagation();
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setMenuItem({ item, x: rect.right + 4, y: rect.top });
+    e.stopPropagation()
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    setMenuItem({ item, x: rect.right + 4, y: rect.top })
   }
 
-  function closeMenu() { setMenuItem(null); }
+  function closeMenu() {
+    setMenuItem(null)
+  }
 
   async function changeStatus(id: number, status: LibraryStatus) {
-    closeMenu();
-    await updateStatus.mutateAsync({ id, status });
+    closeMenu()
+    await updateStatus.mutateAsync({ id, status })
   }
 
   async function removeItem(id: number) {
-    closeMenu();
-    await removeLib.mutateAsync({ id });
-    toast("Removed from library");
+    closeMenu()
+    await removeLib.mutateAsync({ id })
+    toast("Removed from library")
   }
 
   return (
@@ -78,23 +80,32 @@ export default function LibraryPage() {
             )}
           </For>
         </div>
-
       </div>
 
       <Show
         when={filtered().length > 0}
         fallback={
           <div class="text-center py-10 text-muted">
-            <div class="text-4xl text-accent opacity-30 mb-3" style={{ animation: "heart-pulse 2s ease-in-out infinite" }}>♥</div>
-            <p class="text-sm">{(library.data?.length ?? 0) === 0 ? "Your library is empty. Add a show above!" : "No shows in this category."}</p>
+            <div
+              class="text-4xl text-accent opacity-30 mb-3"
+              style={{ animation: "heart-pulse 2s ease-in-out infinite" }}
+            >
+              ♥
+            </div>
+            <p class="text-sm">
+              {(library.data?.length ?? 0) === 0
+                ? "Your library is empty. Add a show above!"
+                : "No shows in this category."}
+            </p>
           </div>
         }
       >
         <div class="grid gap-4" style={{ "grid-template-columns": "repeat(auto-fill, minmax(160px, 1fr))" }}>
           <For each={filtered()}>
             {(item) => {
-              const pct = () => item.totalEpisodes > 0 ? Math.round((item.watchedCount / item.totalEpisodes) * 100) : 0;
-              const poster = () => item.poster ? `/api/poster-proxy?url=${encodeURIComponent(item.poster)}` : "";
+              const pct = () =>
+                item.totalEpisodes > 0 ? Math.round((item.watchedCount / item.totalEpisodes) * 100) : 0
+              const poster = () => (item.poster ? `/api/poster-proxy?url=${encodeURIComponent(item.poster)}` : "")
 
               return (
                 <div
@@ -107,7 +118,9 @@ export default function LibraryPage() {
                   >
                     <MoreHorizontal size={14} />
                   </button>
-                  <span class={`absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded text-white uppercase tracking-wide backdrop-blur-sm status-${item.status}`}>
+                  <span
+                    class={`absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded text-white uppercase tracking-wide backdrop-blur-sm status-${item.status}`}
+                  >
                     {STATUS_LABELS[item.status] ?? item.status}
                   </span>
                   {poster() ? (
@@ -117,13 +130,18 @@ export default function LibraryPage() {
                   )}
                   <div class="p-2.5">
                     <div class="text-xs font-semibold text-text leading-tight mb-1.5 line-clamp-2">{item.title}</div>
-                    <div class="text-[11px] text-muted mb-1">{item.watchedCount}/{item.totalEpisodes} episodes</div>
+                    <div class="text-[11px] text-muted mb-1">
+                      {item.watchedCount}/{item.totalEpisodes} episodes
+                    </div>
                     <div class="h-[3px] bg-border rounded-sm overflow-hidden">
-                      <div class="h-full bg-accent rounded-sm transition-[width] duration-300" style={{ width: `${pct()}%` }} />
+                      <div
+                        class="h-full bg-accent rounded-sm transition-[width] duration-300"
+                        style={{ width: `${pct()}%` }}
+                      />
                     </div>
                   </div>
                 </div>
-              );
+              )
             }}
           </For>
         </div>
@@ -137,11 +155,13 @@ export default function LibraryPage() {
             style={{ top: `${m().y}px`, left: `${m().x}px` }}
             onClick={(e) => e.stopPropagation()}
           >
-            <For each={[
-              { key: "plan_to_watch" as LibraryStatus, label: "Plan to watch" },
-              { key: "watching" as LibraryStatus, label: "Watching" },
-              { key: "watched" as LibraryStatus, label: "Watched" },
-            ]}>
+            <For
+              each={[
+                { key: "plan_to_watch" as LibraryStatus, label: "Plan to watch" },
+                { key: "watching" as LibraryStatus, label: "Watching" },
+                { key: "watched" as LibraryStatus, label: "Watched" },
+              ]}
+            >
               {(s) => (
                 <button
                   onClick={() => changeStatus(m().item.id, s.key)}
@@ -162,5 +182,5 @@ export default function LibraryPage() {
         )}
       </Show>
     </div>
-  );
+  )
 }

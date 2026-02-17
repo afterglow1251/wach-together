@@ -1,28 +1,27 @@
-import { Bookmark } from "lucide-solid";
-import type { SearchResultItem } from "../../../shared/types";
+import { Bookmark } from "lucide-solid"
+import type { SearchResultItem } from "../../../shared/types"
 
 const CATEGORY_COLORS: Record<string, string> = {
   film: "bg-pink-600",
   series: "bg-indigo-600",
   cartoon: "bg-amber-600",
   anime: "bg-violet-600",
-};
+}
 
 const CATEGORY_LABELS: Record<string, string> = {
   film: "Film",
   series: "Series",
   cartoon: "Cartoon",
   anime: "Anime",
-};
+}
 
 export default function SearchCard(props: {
-  item: SearchResultItem;
-  onClick: () => void;
-  onBookmark?: () => void;
-  inLibrary?: boolean;
+  item: SearchResultItem
+  onClick: () => void
+  onBookmark?: () => void
+  inLibrary?: boolean
 }) {
-  const poster = () =>
-    props.item.poster ? `/api/poster-proxy?url=${encodeURIComponent(props.item.poster)}` : "";
+  const poster = () => (props.item.poster ? `/api/poster-proxy?url=${encodeURIComponent(props.item.poster)}` : "")
 
   return (
     <div
@@ -48,7 +47,10 @@ export default function SearchCard(props: {
       {/* Top-right: bookmark */}
       {props.onBookmark && (
         <button
-          onClick={(e) => { e.stopPropagation(); if (!props.inLibrary) props.onBookmark!(); }}
+          onClick={(e) => {
+            e.stopPropagation()
+            if (!props.inLibrary) props.onBookmark!()
+          }}
           class={`absolute top-2 right-2 w-7 h-7 rounded-full border-none cursor-pointer flex items-center justify-center transition-opacity backdrop-blur-sm z-10 ${
             props.inLibrary
               ? "bg-accent/80 text-white opacity-100"
@@ -66,10 +68,8 @@ export default function SearchCard(props: {
       )}
       <div class="p-2.5">
         <div class="text-xs font-semibold text-text leading-tight mb-1 line-clamp-2">{props.item.title}</div>
-        {props.item.year && (
-          <div class="text-[11px] text-muted">{props.item.year}</div>
-        )}
+        {props.item.year && <div class="text-[11px] text-muted">{props.item.year}</div>}
       </div>
     </div>
-  );
+  )
 }

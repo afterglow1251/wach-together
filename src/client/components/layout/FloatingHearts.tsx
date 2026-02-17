@@ -1,4 +1,4 @@
-import { For } from "solid-js";
+import { For } from "solid-js"
 
 const HEARTS = [
   { left: "5%", w: 12, dur: 12, delay: 0, opacity: 0.08 },
@@ -13,7 +13,7 @@ const HEARTS = [
   { left: "92%", w: 15, dur: 14, delay: 4, opacity: 0.09 },
   { left: "10%", w: 18, dur: 17, delay: 7, opacity: 0.08 },
   { left: "50%", w: 11, dur: 12, delay: 15, opacity: 0.11 },
-];
+]
 
 export default function FloatingHearts() {
   return (
@@ -34,5 +34,5 @@ export default function FloatingHearts() {
         )}
       </For>
     </div>
-  );
+  )
 }

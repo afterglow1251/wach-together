@@ -1,26 +1,26 @@
-import { For, Show, createEffect } from "solid-js";
-import type { ChatMsg } from "../../stores/room";
+import { For, Show, createEffect } from "solid-js"
+import type { ChatMsg } from "../../stores/room"
 
 export default function Chat(props: {
-  messages: ChatMsg[];
-  typingUser: string | null;
-  onSend: (text: string) => void;
-  onTyping: () => void;
+  messages: ChatMsg[]
+  typingUser: string | null
+  onSend: (text: string) => void
+  onTyping: () => void
 }) {
-  let messagesEl!: HTMLDivElement;
-  let inputEl!: HTMLInputElement;
+  let messagesEl!: HTMLDivElement
+  let inputEl!: HTMLInputElement
 
   createEffect(() => {
     // Scroll to bottom on new message
-    props.messages.length;
-    if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
-  });
+    props.messages.length
+    if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight
+  })
 
   function handleSend() {
-    const text = inputEl.value.trim();
-    if (!text) return;
-    props.onSend(text);
-    inputEl.value = "";
+    const text = inputEl.value.trim()
+    if (!text) return
+    props.onSend(text)
+    inputEl.value = ""
   }
 
   return (
@@ -34,9 +34,7 @@ export default function Chat(props: {
           {(msg) => (
             <div
               class={`px-2.5 py-1.5 rounded-xl text-[13px] leading-relaxed max-w-[90%] ${
-                msg.isMe
-                  ? "self-end bg-accent text-white rounded-br-sm"
-                  : "self-start bg-hover text-text rounded-bl-sm"
+                msg.isMe ? "self-end bg-accent text-white rounded-br-sm" : "self-start bg-hover text-text rounded-bl-sm"
               }`}
               style={{ animation: "msg-in 0.25s ease-out" }}
             >
@@ -51,7 +49,10 @@ export default function Chat(props: {
           )}
         </For>
         <Show when={props.typingUser}>
-          <div class="text-xs text-accent italic px-2.5 opacity-80" style={{ animation: "typing-pulse 1s ease-in-out infinite" }}>
+          <div
+            class="text-xs text-accent italic px-2.5 opacity-80"
+            style={{ animation: "typing-pulse 1s ease-in-out infinite" }}
+          >
             {props.typingUser} is writing something sweet...
           </div>
         </Show>
@@ -72,10 +73,11 @@ export default function Chat(props: {
           class="rounded-full min-w-9 w-9 h-9 p-0 flex items-center justify-center shrink-0 bg-accent text-white border-none cursor-pointer transition-all hover:bg-accent-dark"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 2L11 13" /><path d="M22 2L15 22L11 13L2 9L22 2Z" />
+            <path d="M22 2L11 13" />
+            <path d="M22 2L15 22L11 13L2 9L22 2Z" />
           </svg>
         </button>
       </div>
     </div>
-  );
+  )
 }

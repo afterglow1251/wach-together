@@ -27,10 +27,19 @@ body {
 }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--color-muted); }
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted);
+}
 
 /* Plyr overrides */
 .plyr {
@@ -48,7 +57,9 @@ body {
 .plyr__video-wrapper {
   height: 100%;
 }
-.plyr :focus { outline: none; }
+.plyr :focus {
+  outline: none;
+}
 #plyr-wrapper:fullscreen {
   --fs-btn-display: flex;
   --fs-chat-display: flex;
@@ -57,21 +68,23 @@ body {
   --fs-btn-display: flex;
   --fs-chat-display: flex;
 }
-.plyr, .plyr * { user-select: none; }
+.plyr,
+.plyr * {
+  user-select: none;
+}
 .no-source .plyr__controls,
-.no-source .plyr__control--overlaid { display: none !important; }
+.no-source .plyr__control--overlaid {
+  display: none !important;
+}
 
 /* Gradient backgrounds */
 .bg-auth-gradient {
-  background:
-    radial-gradient(ellipse at 50% 0%, rgba(232, 67, 147, 0.08) 0%, transparent 60%),
-    var(--color-base);
+  background: radial-gradient(ellipse at 50% 0%, rgba(232, 67, 147, 0.08) 0%, transparent 60%), var(--color-base);
 }
 .bg-sidebar-gradient {
   background:
     radial-gradient(ellipse at 50% 0%, rgba(232, 67, 147, 0.06) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 100%, rgba(232, 67, 147, 0.04) 0%, transparent 50%),
-    var(--color-sidebar);
+    radial-gradient(ellipse at 50% 100%, rgba(232, 67, 147, 0.04) 0%, transparent 50%), var(--color-sidebar);
 }
 .sidebar-divider {
   border-bottom: 1px solid transparent;
@@ -100,10 +113,20 @@ body {
 }
 
 /* Seek overlay shapes */
-.clip-left { clip-path: ellipse(100% 50% at 0% 50%); }
-.clip-right { clip-path: ellipse(100% 50% at 100% 50%); }
+.clip-left {
+  clip-path: ellipse(100% 50% at 0% 50%);
+}
+.clip-right {
+  clip-path: ellipse(100% 50% at 100% 50%);
+}
 
 /* Library card status badges */
-.status-watching { background: rgba(232, 67, 147, 0.85); }
-.status-plan_to_watch { background: rgba(99, 102, 241, 0.85); }
-.status-watched { background: rgba(52, 211, 153, 0.85); }
+.status-watching {
+  background: rgba(232, 67, 147, 0.85);
+}
+.status-plan_to_watch {
+  background: rgba(99, 102, 241, 0.85);
+}
+.status-watched {
+  background: rgba(52, 211, 153, 0.85);
+}

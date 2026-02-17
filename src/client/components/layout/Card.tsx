@@ -1,4 +1,4 @@
-import type { ParentComponent } from "solid-js";
+import type { ParentComponent } from "solid-js"
 
 const Card: ParentComponent<{ class?: string }> = (props) => (
   <div
@@ -7,6 +7,6 @@ const Card: ParentComponent<{ class?: string }> = (props) => (
   >
     {props.children}
   </div>
-);
+)
 
-export default Card;
+export default Card

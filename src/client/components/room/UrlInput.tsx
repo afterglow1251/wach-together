@@ -1,23 +1,20 @@
-import { createSignal, createEffect, Show } from "solid-js";
-import Spinner from "../ui/Spinner";
+import { createSignal, createEffect, Show } from "solid-js"
+import Spinner from "../ui/Spinner"
 
-export default function UrlInput(props: {
-  initialUrl?: string;
-  onLoad: (url: string) => Promise<void>;
-}) {
-  const [url, setUrl] = createSignal(props.initialUrl ?? "");
+export default function UrlInput(props: { initialUrl?: string; onLoad: (url: string) => Promise<void> }) {
+  const [url, setUrl] = createSignal(props.initialUrl ?? "")
 
   createEffect(() => {
-    if (props.initialUrl) setUrl(props.initialUrl);
-  });
-  const [loading, setLoading] = createSignal(false);
+    if (props.initialUrl) setUrl(props.initialUrl)
+  })
+  const [loading, setLoading] = createSignal(false)
 
   async function handleLoad() {
-    const val = url().trim();
-    if (!val) return;
-    setLoading(true);
-    await props.onLoad(val);
-    setLoading(false);
+    const val = url().trim()
+    if (!val) return
+    setLoading(true)
+    await props.onLoad(val)
+    setLoading(false)
   }
 
   return (
@@ -37,9 +34,11 @@ export default function UrlInput(props: {
           disabled={loading()}
           class="inline-flex items-center justify-center px-3.5 py-2 bg-accent text-white rounded-md text-[13px] font-semibold cursor-pointer transition-all hover:bg-accent-dark disabled:opacity-50"
         >
-          <Show when={!loading()} fallback={<Spinner />}>Load</Show>
+          <Show when={!loading()} fallback={<Spinner />}>
+            Load
+          </Show>
         </button>
       </div>
     </div>
-  );
+  )
 }
