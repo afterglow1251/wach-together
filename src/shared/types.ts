@@ -29,6 +29,14 @@ export interface RoomInfo {
   streamUrl: string | null
   isPlaying: boolean
   currentTime: number
+  chatHistory: Array<{
+    msgId: number
+    name: string
+    text: string
+    time: number
+    replyTo?: { msgId: number; name: string; text: string }
+  }>
+  chatReactions: Array<{ msgId: number; emoji: string; users: string[] }>
 }
 
 export interface User {

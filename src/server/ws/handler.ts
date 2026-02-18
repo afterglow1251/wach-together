@@ -335,7 +335,21 @@ export default new Elysia().ws("/ws", {
         const room = getRoom(state.roomCode)
         if (!room) return
 
-        broadcastToRoom(room, { type: "chat", name: state.name, text: msg.text, time: Date.now() })
+        const msgId = ++room.chatMsgCounter
+
+        let replyTo: { msgId: number; name: string; text: string } | undefined
+        if (msg.replyTo) {
+          const original = room.chatHistory.find((m) => m.msgId === msg.replyTo)
+          if (original) {
+            replyTo = { msgId: original.msgId, name: original.name, text: original.text }
+          }
+        }
+
+        const time = Date.now()
+        room.chatHistory.push({ msgId, name: state.name, text: msg.text, time, replyTo })
+        if (room.chatHistory.length > 100) room.chatHistory.shift()
+
+        broadcastToRoom(room, { type: "chat", name: state.name, text: msg.text, time, msgId, replyTo })
         break
       }
 
@@ -346,6 +360,34 @@ export default new Elysia().ws("/ws", {
         if (!room) return
 
         broadcastToRoom(room, { type: "reaction", name: state.name, emoji: msg.emoji })
+        break
+      }
+
+      case "chat-reaction": {
+        const state = wsState.get(cid)
+        if (!state?.roomCode) return
+        const room = getRoom(state.roomCode)
+        if (!room) return
+
+        const { msgId: reactionMsgId, emoji } = msg
+        if (!room.chatReactions.has(reactionMsgId)) {
+          room.chatReactions.set(reactionMsgId, new Map())
+        }
+        const emojiMap = room.chatReactions.get(reactionMsgId)!
+        if (!emojiMap.has(emoji)) {
+          emojiMap.set(emoji, new Set())
+        }
+        const users = emojiMap.get(emoji)!
+        const action: "add" | "remove" = users.has(state.name) ? "remove" : "add"
+        if (action === "add") {
+          users.add(state.name)
+        } else {
+          users.delete(state.name)
+          if (users.size === 0) emojiMap.delete(emoji)
+          if (emojiMap.size === 0) room.chatReactions.delete(reactionMsgId)
+        }
+
+        broadcastToRoom(room, { type: "chat-reaction", msgId: reactionMsgId, emoji, name: state.name, action })
         break
       }
 

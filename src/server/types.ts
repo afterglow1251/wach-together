@@ -15,6 +15,15 @@ export interface Room {
   currentTime: number
   lastSyncAt: number
   clients: Map<string, RoomClient>
+  chatMsgCounter: number
+  chatHistory: Array<{
+    msgId: number
+    name: string
+    text: string
+    time: number
+    replyTo?: { msgId: number; name: string; text: string }
+  }>
+  chatReactions: Map<number, Map<string, Set<string>>>
 }
 
 export interface RoomClient {

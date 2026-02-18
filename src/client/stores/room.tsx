@@ -5,12 +5,21 @@ import type { WSServerMessage } from "../../shared/ws-types"
 import * as ws from "../services/ws"
 import { playNotificationBeep } from "../services/audio"
 
+export interface ChatMsgReaction {
+  emoji: string
+  count: number
+  reacted: boolean
+}
+
 export interface ChatMsg {
   name: string
   text: string
   isMe: boolean
   id: number
   time: number
+  msgId: number
+  replyTo?: { msgId: number; name: string; text: string }
+  reactions: ChatMsgReaction[]
 }
 
 export interface RoomState {
@@ -28,6 +37,7 @@ export interface RoomState {
   chat: ChatMsg[]
   typingUser: string | null
   lastReaction: { emoji: string; id: number } | null
+  replyingTo: ChatMsg | null
 }
 
 interface RoomActions {
@@ -44,7 +54,9 @@ interface RoomActions {
   sendSync: (time: number, isPlaying: boolean) => void
   sendChat: (text: string) => void
   sendReaction: (emoji: string) => void
+  sendChatReaction: (msgId: number, emoji: string) => void
   sendTyping: () => void
+  setReplyingTo: (msg: ChatMsg | null) => void
   getUsername: () => string
 }
 
@@ -74,6 +86,7 @@ export const RoomProvider: ParentComponent<{ username: Accessor<string>; userId:
     chat: [],
     typingUser: null,
     lastReaction: null,
+    replyingTo: null,
   })
 
   function handleMessage(msg: WSServerMessage) {
@@ -117,10 +130,46 @@ export const RoomProvider: ParentComponent<{ username: Accessor<string>; userId:
         const isMe = msg.name === props.username()
         setState(
           produce((s) => {
-            s.chat.push({ name: msg.name, text: msg.text, isMe, id: ++chatIdCounter, time: msg.time })
+            s.chat.push({
+              name: msg.name,
+              text: msg.text,
+              isMe,
+              id: ++chatIdCounter,
+              time: msg.time,
+              msgId: msg.msgId,
+              replyTo: msg.replyTo,
+              reactions: [],
+            })
           }),
         )
         if (!isMe) playNotificationBeep()
+        break
+      }
+      case "chat-reaction": {
+        setState(
+          produce((s) => {
+            const chatMsg = s.chat.find((m) => m.msgId === msg.msgId)
+            if (!chatMsg) return
+            const existing = chatMsg.reactions.find((r) => r.emoji === msg.emoji)
+            const isMe = msg.name === props.username()
+            if (msg.action === "add") {
+              if (existing) {
+                existing.count++
+                if (isMe) existing.reacted = true
+              } else {
+                chatMsg.reactions.push({ emoji: msg.emoji, count: 1, reacted: isMe })
+              }
+            } else {
+              if (existing) {
+                existing.count--
+                if (isMe) existing.reacted = false
+                if (existing.count <= 0) {
+                  chatMsg.reactions.splice(chatMsg.reactions.indexOf(existing), 1)
+                }
+              }
+            }
+          }),
+        )
         break
       }
       case "reaction":
@@ -151,6 +200,29 @@ export const RoomProvider: ParentComponent<{ username: Accessor<string>; userId:
     if (syncInterval) clearInterval(syncInterval)
     syncInterval = null
 
+    // Build reaction lookup from serialized chatReactions
+    const reactionsByMsg = new Map<number, ChatMsgReaction[]>()
+    for (const r of room.chatReactions) {
+      if (!reactionsByMsg.has(r.msgId)) reactionsByMsg.set(r.msgId, [])
+      reactionsByMsg.get(r.msgId)!.push({
+        emoji: r.emoji,
+        count: r.users.length,
+        reacted: r.users.includes(props.username()),
+      })
+    }
+
+    // Restore chat messages from server history
+    const restoredChat: ChatMsg[] = room.chatHistory.map((m) => ({
+      name: m.name,
+      text: m.text,
+      isMe: m.name === props.username(),
+      id: ++chatIdCounter,
+      time: m.time,
+      msgId: m.msgId,
+      replyTo: m.replyTo,
+      reactions: reactionsByMsg.get(m.msgId) ?? [],
+    }))
+
     setState({
       connected: true,
       roomCode: room.code,
@@ -163,6 +235,7 @@ export const RoomProvider: ParentComponent<{ username: Accessor<string>; userId:
       streamUrl: room.streamUrl,
       isPlaying: room.isPlaying,
       currentTime: room.currentTime,
+      chat: restoredChat,
     })
   }
 
@@ -249,15 +322,25 @@ export const RoomProvider: ParentComponent<{ username: Accessor<string>; userId:
     },
 
     sendChat(text) {
-      ws.send({ type: "chat", clientId: ws.getClientId(), text })
+      const replyTo = state.replyingTo?.msgId
+      ws.send({ type: "chat", clientId: ws.getClientId(), text, replyTo })
+      setState({ replyingTo: null })
     },
 
     sendReaction(emoji) {
       ws.send({ type: "reaction", clientId: ws.getClientId(), emoji })
     },
 
+    sendChatReaction(msgId, emoji) {
+      ws.send({ type: "chat-reaction", clientId: ws.getClientId(), msgId, emoji })
+    },
+
     sendTyping() {
       ws.send({ type: "typing", clientId: ws.getClientId() })
+    },
+
+    setReplyingTo(msg) {
+      setState({ replyingTo: msg })
     },
   }
 

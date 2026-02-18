@@ -1,4 +1,4 @@
-import { createSignal, createEffect, Show, onMount, onCleanup } from "solid-js"
+import { createSignal, createEffect, Show, onMount } from "solid-js"
 import { useParams, useSearchParams, useNavigate } from "@solidjs/router"
 import { useQueryClient } from "@tanstack/solid-query"
 import { useAuth } from "../stores/auth"
@@ -227,8 +227,12 @@ export default function RoomPage() {
         <Chat
           messages={room.state.chat}
           typingUser={room.state.typingUser}
+          replyingTo={room.state.replyingTo}
           onSend={(text) => room.sendChat(text)}
           onTyping={() => room.sendTyping()}
+          onReply={(msg) => room.setReplyingTo(msg)}
+          onCancelReply={() => room.setReplyingTo(null)}
+          onReaction={(msgId, emoji) => room.sendChatReaction(msgId, emoji)}
         />
       </aside>
 

@@ -79,6 +79,11 @@ export default function FullscreenChat(props: {
                 class="bg-black/60 backdrop-blur-md text-white px-3 py-1.5 rounded-[10px] text-[13px] max-w-[280px] pointer-events-none"
                 style={{ animation: "fs-msg-in 0.3s ease-out, fs-msg-out 0.4s ease-in 4s forwards" }}
               >
+                {msg.replyTo && (
+                  <span class="opacity-60 mr-1 text-[11px]">
+                    {"\u21A9"} {msg.replyTo.name}
+                  </span>
+                )}
                 <span class="font-semibold text-accent mr-1.5 text-xs">{msg.name}</span>
                 {msg.text}
               </div>

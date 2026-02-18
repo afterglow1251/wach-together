@@ -12,8 +12,9 @@ export type WSClientMessage =
   | { type: "seek"; clientId: string; time: number }
   | { type: "sync"; clientId: string; time: number; isPlaying: boolean }
   | { type: "sync-request"; clientId: string }
-  | { type: "chat"; clientId: string; text: string }
+  | { type: "chat"; clientId: string; text: string; replyTo?: number }
   | { type: "reaction"; clientId: string; emoji: string }
+  | { type: "chat-reaction"; clientId: string; msgId: number; emoji: string }
   | { type: "typing"; clientId: string }
   | { type: "disconnect"; clientId: string }
 
@@ -28,8 +29,16 @@ export type WSServerMessage =
   | { type: "sync"; time: number; isPlaying: boolean }
   | { type: "user-joined"; name: string; count: number; viewers: string[] }
   | { type: "user-left"; name: string; count: number; viewers: string[] }
-  | { type: "chat"; name: string; text: string; time: number }
+  | {
+      type: "chat"
+      name: string
+      text: string
+      time: number
+      msgId: number
+      replyTo?: { msgId: number; name: string; text: string }
+    }
   | { type: "reaction"; name: string; emoji: string }
+  | { type: "chat-reaction"; msgId: number; emoji: string; name: string; action: "add" | "remove" }
   | { type: "typing"; name: string }
   | { type: "error"; message: string }
   | { type: "friend-request-received"; from: { id: number; username: string } }

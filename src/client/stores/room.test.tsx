@@ -206,7 +206,7 @@ describe("RoomProvider", () => {
   describe("handleMessage: chat", () => {
     it("adds chat messages", () => {
       renderRoom()
-      simulateMessage({ type: "chat", name: "Alice", text: "hello", time: 123 })
+      simulateMessage({ type: "chat", name: "Alice", text: "hello", time: 123, msgId: 1 })
 
       expect(screen.getByTestId("chat-count").textContent).toBe("1")
     })
@@ -214,7 +214,7 @@ describe("RoomProvider", () => {
     it("plays beep for messages from others", async () => {
       const { playNotificationBeep } = await import("../services/audio")
       renderRoom()
-      simulateMessage({ type: "chat", name: "Alice", text: "hello", time: 123 })
+      simulateMessage({ type: "chat", name: "Alice", text: "hello", time: 123, msgId: 2 })
 
       expect(playNotificationBeep).toHaveBeenCalled()
     })
@@ -222,7 +222,7 @@ describe("RoomProvider", () => {
     it("does not play beep for own messages", async () => {
       const { playNotificationBeep } = await import("../services/audio")
       renderRoom()
-      simulateMessage({ type: "chat", name: "TestUser", text: "hello", time: 123 })
+      simulateMessage({ type: "chat", name: "TestUser", text: "hello", time: 123, msgId: 3 })
 
       expect(playNotificationBeep).not.toHaveBeenCalled()
     })

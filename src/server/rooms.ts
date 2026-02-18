@@ -34,6 +34,9 @@ export function createRoom(hostId: string): Room {
     currentTime: 0,
     lastSyncAt: Date.now(),
     clients: new Map(),
+    chatMsgCounter: 0,
+    chatHistory: [],
+    chatReactions: new Map(),
   }
 
   rooms.set(code, room)
@@ -75,7 +78,21 @@ export function broadcastToRoom(room: Room, message: object, excludeId?: string)
   }
 }
 
+function serializeChatReactions(
+  reactions: Map<number, Map<string, Set<string>>>,
+): Array<{ msgId: number; emoji: string; users: string[] }> {
+  const result: Array<{ msgId: number; emoji: string; users: string[] }> = []
+  for (const [msgId, emojiMap] of reactions) {
+    for (const [emoji, users] of emojiMap) {
+      result.push({ msgId, emoji, users: Array.from(users) })
+    }
+  }
+  return result
+}
+
 export function getRoomInfo(room: Room, clientId: string): RoomInfo {
+  const currentTime = room.isPlaying ? room.currentTime + (Date.now() - room.lastSyncAt) / 1000 : room.currentTime
+
   return {
     code: room.code,
     hostId: room.hostId,
@@ -88,6 +105,8 @@ export function getRoomInfo(room: Room, clientId: string): RoomInfo {
     currentEpisode: room.currentEpisode,
     streamUrl: room.streamUrl,
     isPlaying: room.isPlaying,
-    currentTime: room.currentTime,
+    currentTime,
+    chatHistory: room.chatHistory,
+    chatReactions: serializeChatReactions(room.chatReactions),
   }
 }
