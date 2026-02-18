@@ -1,6 +1,6 @@
 import { For, createEffect } from "solid-js"
 
-const EXTRAS = ["😂", "👀", "😎", "😱", "😤", "😡"]
+const EXTRAS = ["😂", "👀", "😎", "😱", "😢", "😤", "😡"]
 
 export default function ReactionBar(props: {
   onReaction: (emoji: string) => void
