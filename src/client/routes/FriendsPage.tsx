@@ -135,15 +135,15 @@ export default function FriendsPage() {
 
   async function handleRemove(friendshipId: number, username: string) {
     const ok = await confirm({
-      title: "Remove friend",
-      message: `Are you sure you want to remove ${username} from your friends?`,
+      title: "Remove loved one",
+      message: `Are you sure you want to remove ${username} from your loved ones?`,
       confirmText: "Remove",
       danger: true,
     })
     if (!ok) return
     try {
       await removeFriend.mutateAsync({ friendshipId, userId: userId()! })
-      navigate("/friends", { replace: true })
+      navigate("/loved-ones", { replace: true })
     } catch (e) {
       toast(e instanceof Error ? e.message : "Something went wrong")
     }
@@ -157,7 +157,7 @@ export default function FriendsPage() {
           <SharedLibraryView
             userId={userId()!}
             friend={selectedFriend()!}
-            onBack={() => navigate("/friends")}
+            onBack={() => navigate("/loved-ones")}
             onRemove={handleRemove}
           />
         }
@@ -205,7 +205,7 @@ export default function FriendsPage() {
                   <div class="flex items-center justify-between px-4 py-3 bg-card border border-border rounded-lg">
                     <div>
                       <span class="text-sm font-medium text-text">{req.senderUsername}</span>
-                      <span class="text-xs text-muted ml-2">wants to be friends</span>
+                      <span class="text-xs text-muted ml-2">wants to be your loved one</span>
                     </div>
                     <div class="flex gap-2">
                       <button
@@ -268,19 +268,19 @@ export default function FriendsPage() {
                 >
                   &#9829;
                 </div>
-                <p class="text-sm">No friends yet. Search and add someone above!</p>
+                <p class="text-sm">No loved ones yet. Search and add someone above!</p>
               </div>
             </Show>
           }
         >
           <h3 class="text-xs font-semibold text-muted uppercase tracking-wide mb-3">
-            Friends ({friends.data!.length})
+            Loved Ones ({friends.data!.length})
           </h3>
           <div class="flex flex-col gap-2">
             <For each={friends.data}>
               {(friend) => (
                 <button
-                  onClick={() => navigate(`/friends/${friend.userId}`)}
+                  onClick={() => navigate(`/loved-ones/${friend.userId}`)}
                   class="flex items-center justify-between px-4 py-3 bg-card border border-border rounded-lg cursor-pointer hover:border-accent/30 hover:shadow-[0_2px_12px_rgba(232,67,147,0.08)] transition-all text-left w-full"
                 >
                   <div class="flex items-center gap-3">
@@ -462,7 +462,7 @@ function SharedLibraryView(props: {
         <button
           onClick={() => props.onRemove(props.friend.friendshipId, props.friend.username)}
           class="w-8 h-8 rounded-full border border-danger/30 bg-transparent text-danger cursor-pointer flex items-center justify-center hover:bg-danger/10 transition-colors"
-          title="Remove friend"
+          title="Remove loved one"
         >
           <Trash2 size={14} />
         </button>

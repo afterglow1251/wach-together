@@ -11,7 +11,6 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky"
@@ -29,7 +28,6 @@
     "solid-toast": "^0.5.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.58.2",
     "@solidjs/testing-library": "^0.8.10",
     "@tailwindcss/vite": "^4.0.0",
     "@testing-library/jest-dom": "^6.9.1",

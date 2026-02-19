@@ -45,10 +45,15 @@ export default function App() {
               </AuthGuard>
             )}
           />
-          <Route path="/search" component={() => <Navigate href="/friends" />} />
-          <Route path="/library" component={() => <Navigate href="/friends" />} />
+          <Route path="/search" component={() => <Navigate href="/loved-ones" />} />
+          <Route path="/library" component={() => <Navigate href="/loved-ones" />} />
+          <Route path="/friends" component={() => <Navigate href="/loved-ones" />} />
           <Route
             path="/friends/:friendId"
+            component={({ params }) => <Navigate href={`/loved-ones/${params.friendId}`} />}
+          />
+          <Route
+            path="/loved-ones/:friendId"
             component={() => (
               <AuthGuard>
                 <AppLayout>
@@ -58,7 +63,7 @@ export default function App() {
             )}
           />
           <Route
-            path="/friends"
+            path="/loved-ones"
             component={() => (
               <AuthGuard>
                 <AppLayout>

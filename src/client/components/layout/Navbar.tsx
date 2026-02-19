@@ -29,11 +29,11 @@ export default function Navbar() {
           Home
         </A>
         <A
-          href="/friends"
+          href="/loved-ones"
           class="px-3 py-1.5 rounded-md text-[13px] font-medium text-muted transition-colors hover:text-text hover:bg-hover inline-flex items-center"
           activeClass="!text-accent !bg-accent/10"
         >
-          Friends
+          Loved Ones
           <Show when={requestCount() > 0}>
             <span
               class="bg-accent text-white text-[10px] font-bold min-w-[18px] h-[18px] rounded-full inline-flex items-center justify-center ml-1 shadow-[0_0_8px_var(--color-accent-glow)]"

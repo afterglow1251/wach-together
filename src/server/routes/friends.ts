@@ -51,7 +51,7 @@ export default new Elysia()
           .limit(1)
 
         if (existing.length > 0) {
-          if (existing[0].status === "accepted") return { ok: false, error: "Already friends" }
+          if (existing[0].status === "accepted") return { ok: false, error: "Already loved ones" }
           return { ok: false, error: "Request already exists" }
         }
 

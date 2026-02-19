@@ -67,7 +67,7 @@ export default new Elysia()
           )
           .limit(1)
 
-        if (friendship.length === 0) return { ok: false, error: "Not friends" }
+        if (friendship.length === 0) return { ok: false, error: "Not loved ones" }
 
         const show = await withTimeout(parseUakinoPage(sourceUrl), 30000, "Timed out loading page (30s)")
 

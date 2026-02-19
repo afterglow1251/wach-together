@@ -52,6 +52,8 @@ export const mockRoomInfo: RoomInfo = {
   streamUrl: null,
   isPlaying: false,
   currentTime: 0,
+  chatHistory: [],
+  chatReactions: [],
 }
 
 export const mockLibraryItem: LibraryItem = {
