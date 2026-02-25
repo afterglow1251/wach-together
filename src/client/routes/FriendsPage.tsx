@@ -533,19 +533,21 @@ function SharedLibraryView(props: {
         <Show
           when={filtered().length > 0}
           fallback={
-            <div class="text-center py-10 text-muted">
-              <div
-                class="text-4xl text-accent opacity-30 mb-3"
-                style={{ animation: "heart-pulse 2s ease-in-out infinite" }}
-              >
-                &#9829;
+            <Show when={!sharedLib.isLoading}>
+              <div class="text-center py-10 text-muted">
+                <div
+                  class="text-4xl text-accent opacity-30 mb-3"
+                  style={{ animation: "heart-pulse 2s ease-in-out infinite" }}
+                >
+                  &#9829;
+                </div>
+                <p class="text-sm">
+                  {(sharedLib.data?.length ?? 0) === 0
+                    ? "Your shared list is empty — find something to watch together!"
+                    : "No shows in this category."}
+                </p>
               </div>
-              <p class="text-sm">
-                {(sharedLib.data?.length ?? 0) === 0
-                  ? "Your shared list is empty — find something to watch together!"
-                  : "No shows in this category."}
-              </p>
-            </div>
+            </Show>
           }
         >
           <div class="grid gap-4" style={{ "grid-template-columns": "repeat(auto-fill, minmax(160px, 1fr))" }}>
