@@ -1,4 +1,4 @@
-import { onMount, onCleanup, createEffect, type ParentComponent } from "solid-js"
+import { onMount, onCleanup, createEffect, untrack, type ParentComponent } from "solid-js"
 import Plyr from "plyr"
 import Hls from "hls.js"
 
@@ -80,7 +80,17 @@ const VideoPlayer: ParentComponent<{
   // Load stream when URL changes
   createEffect(() => {
     const url = props.streamUrl
-    if (!url) return
+    if (!url) {
+      // Clean up old video when stream is removed (e.g. loading a new show)
+      if (hls) {
+        hls.destroy()
+        hls = null
+      }
+      videoEl.removeAttribute("src")
+      videoEl.load()
+      wrapperEl.classList.add("no-source")
+      return
+    }
 
     const proxiedUrl = `/api/proxy?url=${encodeURIComponent(url)}`
     wrapperEl.classList.remove("no-source")
@@ -91,19 +101,30 @@ const VideoPlayer: ParentComponent<{
       hls = null
     }
 
+    // Read seek values WITHOUT tracking — only streamUrl should trigger this effect
+    const seekTo = untrack(() =>
+      props.initialSeek && props.initialSeek > 0
+        ? props.initialSeek
+        : props.isHost && props.currentTime > 0
+          ? props.currentTime
+          : 0,
+    )
+
     if (Hls.isSupported()) {
-      hls = new Hls({ maxBufferLength: 30, maxMaxBufferLength: 60 })
+      hls = new Hls({
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60,
+        // Start buffering from the target position directly — no double-buffering
+        ...(seekTo > 0 ? { startPosition: seekTo } : {}),
+      })
       hls.loadSource(proxiedUrl)
       hls.attachMedia(videoEl)
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        if (!didInitialSeek && props.initialSeek && props.initialSeek > 0) {
+        if (!didInitialSeek && seekTo > 0) {
           didInitialSeek = true
-          const onCanPlay = () => {
-            videoEl.removeEventListener("canplay", onCanPlay)
-            videoEl.currentTime = props.initialSeek!
-          }
-          videoEl.addEventListener("canplay", onCanPlay)
+          // Set currentTime immediately — HLS.js already buffers from startPosition
+          videoEl.currentTime = seekTo
         }
       })
 
@@ -116,14 +137,31 @@ const VideoPlayer: ParentComponent<{
       })
     } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
       videoEl.src = proxiedUrl
-      if (!didInitialSeek && props.initialSeek && props.initialSeek > 0) {
+      if (!didInitialSeek && seekTo > 0) {
         didInitialSeek = true
-        const onCanPlay = () => {
-          videoEl.removeEventListener("canplay", onCanPlay)
-          videoEl.currentTime = props.initialSeek!
+        const onMeta = () => {
+          videoEl.removeEventListener("loadedmetadata", onMeta)
+          videoEl.currentTime = seekTo
         }
-        videoEl.addEventListener("canplay", onCanPlay)
+        videoEl.addEventListener("loadedmetadata", onMeta)
       }
+    }
+  })
+
+  // Late-seek: handles race condition where initialSeek is set after MANIFEST_PARSED already fired
+  createEffect(() => {
+    const seekTo = props.initialSeek
+    if (!seekTo || seekTo <= 0 || didInitialSeek) return
+    if (!props.streamUrl) return
+    didInitialSeek = true
+    if (videoEl.readyState >= 1) {
+      videoEl.currentTime = seekTo
+    } else {
+      const onMeta = () => {
+        videoEl.removeEventListener("loadedmetadata", onMeta)
+        videoEl.currentTime = seekTo
+      }
+      videoEl.addEventListener("loadedmetadata", onMeta)
     }
   })
 

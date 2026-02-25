@@ -1,22 +1,11 @@
-import { Show, For } from "solid-js"
 import { useNavigate } from "@solidjs/router"
 import { useAuth } from "../stores/auth"
 import { useRoom } from "../stores/room"
-import { usePlaybackPositions } from "../queries/playback"
-
-function formatTime(seconds: number) {
-  const m = Math.floor(seconds / 60)
-  const s = Math.floor(seconds % 60)
-  return `${m}:${s.toString().padStart(2, "0")}`
-}
 
 export default function HomePage() {
   const auth = useAuth()
   const room = useRoom()
   const navigate = useNavigate()
-  const userId = () => auth.user()?.id
-  const positions = usePlaybackPositions(userId)
-
   function createRoomAndNavigate(params?: string) {
     room.createRoom(auth.user()!.username)
     const unwatch = setInterval(() => {
@@ -29,11 +18,6 @@ export default function HomePage() {
 
   function handleCreate() {
     createRoomAndNavigate()
-  }
-
-  function handleResume(pos: { sourceUrl: string; episodeUrl: string; position: number }) {
-    const params = `?load=${encodeURIComponent(pos.sourceUrl)}&ep=${encodeURIComponent(pos.episodeUrl)}&t=${pos.position}`
-    createRoomAndNavigate(params)
   }
 
   return (
@@ -105,48 +89,6 @@ export default function HomePage() {
         </button>
         <p class="text-muted text-xs tracking-wide uppercase">Create room</p>
       </div>
-
-      <Show when={positions.data && positions.data.length > 0}>
-        <div class="w-full max-w-3xl">
-          <h2 class="text-sm font-semibold text-muted uppercase tracking-wide mb-3">Continue watching</h2>
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            <For each={positions.data}>
-              {(pos) => (
-                <button
-                  onClick={() => handleResume(pos)}
-                  class="group bg-card border border-border rounded-lg overflow-hidden text-left cursor-pointer transition-all hover:border-accent hover:shadow-[0_0_12px_var(--color-accent-glow)]"
-                >
-                  <div class="relative aspect-[2/3] overflow-hidden">
-                    <img
-                      src={`/api/poster-proxy?url=${encodeURIComponent(pos.poster)}`}
-                      alt={pos.title}
-                      class="w-full h-full object-cover transition-transform group-hover:scale-105"
-                      loading="lazy"
-                    />
-                    <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-                      <div class="text-[11px] text-white/70 mb-1">
-                        {formatTime(pos.position)} / {formatTime(pos.duration)}
-                      </div>
-                      <div class="w-full h-1 bg-white/20 rounded-full overflow-hidden">
-                        <div
-                          class="h-full bg-accent rounded-full"
-                          style={{ width: `${Math.min((pos.position / pos.duration) * 100, 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div class="p-2">
-                    <p class="text-xs font-medium text-text truncate">{pos.title}</p>
-                    <Show when={pos.episodeName}>
-                      <p class="text-[11px] text-muted truncate mt-0.5">{pos.episodeName}</p>
-                    </Show>
-                  </div>
-                </button>
-              )}
-            </For>
-          </div>
-        </div>
-      </Show>
     </div>
   )
 }

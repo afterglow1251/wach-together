@@ -1,4 +1,4 @@
-import { createSignal, createEffect, Show, onMount } from "solid-js"
+import { createSignal, createEffect, Show, onMount, onCleanup } from "solid-js"
 import { useParams, useSearchParams, useNavigate } from "@solidjs/router"
 import { useQueryClient } from "@tanstack/solid-query"
 import { useAuth } from "../stores/auth"
@@ -35,7 +35,38 @@ export default function RoomPage() {
   const watched = useWatchedEpisodes(userId, sourceUrl)
   const toggleWatched = useToggleWatched()
   const savePosition = useSavePlaybackPosition()
-  let lastSavedTime = 0
+  let lastLocalSaveTime = 0
+
+  // --- localStorage helpers ---
+  function localPlaybackKey() {
+    const uid = userId()
+    const src = sourceUrl()
+    const epId = room.state.currentEpisode?.id
+    if (!uid || !src || !epId) return null
+    return `playback:${uid}:${src}:${epId}`
+  }
+
+  function savePositionToLocal(time: number, duration: number) {
+    const key = localPlaybackKey()
+    if (!key || !duration) return
+    localStorage.setItem(
+      key,
+      JSON.stringify({ position: Math.floor(time), duration: Math.floor(duration), ts: Date.now() }),
+    )
+    lastLocalSaveTime = time
+  }
+
+  function getPositionFromLocal(uid: number, src: string, epId: string): number | null {
+    const key = `playback:${uid}:${src}:${epId}`
+    try {
+      const raw = localStorage.getItem(key)
+      if (!raw) return null
+      const data = JSON.parse(raw)
+      return typeof data.position === "number" ? data.position : null
+    } catch {
+      return null
+    }
+  }
   // Join room on mount
   onMount(() => {
     if (!room.state.connected && params.code) {
@@ -100,15 +131,24 @@ export default function RoomPage() {
   async function handleEpisodeSelect(ep: Episode) {
     room.selectEpisode(ep)
     setAutoMarkedId(null)
+
+    // Check localStorage first (instant)
+    const localPos = userId() && sourceUrl() ? getPositionFromLocal(userId()!, sourceUrl()!, ep.id) : null
+    if (localPos && localPos > 0) {
+      setInitialSeek(localPos)
+    } else {
+      setInitialSeek(undefined)
+    }
+
     try {
+      // Fetch stream; also fetch backend position as fallback if no local position
+      const needsBackendPos = !localPos && userId() && sourceUrl()
       const [streamResp, posResp] = await Promise.all([
         api.stream({ url: ep.url }),
-        userId() && sourceUrl() ? api.getPlaybackPosition(userId()!, sourceUrl()!, ep.id) : Promise.resolve(null),
+        needsBackendPos ? api.getPlaybackPosition(userId()!, sourceUrl()!, ep.id) : Promise.resolve(null),
       ])
-      if (posResp?.ok && posResp.position) {
+      if (!localPos && posResp?.ok && posResp.position) {
         setInitialSeek(posResp.position.position)
-      } else {
-        setInitialSeek(undefined)
       }
       if (streamResp.ok && streamResp.streamUrl) {
         room.streamReady(streamResp.streamUrl)
@@ -131,7 +171,7 @@ export default function RoomPage() {
     })
   }
 
-  function savePlaybackPosition(time: number, duration: number) {
+  function savePlaybackPositionToBackend(time: number, duration: number) {
     if (!userId() || !sourceUrl() || !room.state.currentEpisode || !room.state.show || !duration) return
     savePosition.mutate({
       userId: userId()!,
@@ -144,7 +184,21 @@ export default function RoomPage() {
       position: Math.floor(time),
       duration: Math.floor(duration),
     })
-    lastSavedTime = time
+  }
+
+  function getBeaconPayload(time: number, duration: number) {
+    if (!userId() || !sourceUrl() || !room.state.currentEpisode || !room.state.show || !duration) return null
+    return {
+      userId: userId()!,
+      sourceUrl: sourceUrl()!,
+      episodeId: room.state.currentEpisode.id,
+      episodeUrl: room.state.currentEpisode.url,
+      title: room.state.show.title,
+      poster: room.state.show.poster,
+      episodeName: room.state.currentEpisode.name,
+      position: Math.floor(time),
+      duration: Math.floor(duration),
+    }
   }
 
   function handleTimeUpdate(time: number, duration: number) {
@@ -160,16 +214,66 @@ export default function RoomPage() {
         }
       }
     }
-    // Save position every 10 seconds of playback change
-    if (Math.abs(time - lastSavedTime) >= 10) {
-      savePlaybackPosition(time, duration)
+    // Save to localStorage every 3 seconds of playback change
+    if (Math.abs(time - lastLocalSaveTime) >= 3) {
+      savePositionToLocal(time, duration)
     }
   }
 
   function handlePause(time: number, duration: number) {
     if (!duration) return
-    savePlaybackPosition(time, duration)
+    savePositionToLocal(time, duration)
+    savePlaybackPositionToBackend(time, duration)
   }
+
+  // --- beforeunload / visibilitychange: save to backend via sendBeacon ---
+  function sendBeaconPosition() {
+    const key = localPlaybackKey()
+    if (!key) return
+    try {
+      const raw = localStorage.getItem(key)
+      if (!raw) return
+      const { position, duration } = JSON.parse(raw)
+      const payload = getBeaconPayload(position, duration)
+      if (!payload) return
+      const blob = new Blob([JSON.stringify(payload)], { type: "application/json" })
+      navigator.sendBeacon("/api/playback-position", blob)
+    } catch {
+      /* noop */
+    }
+  }
+
+  const handleBeforeUnload = () => sendBeaconPosition()
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === "hidden") sendBeaconPosition()
+  }
+
+  onMount(() => {
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+  })
+
+  onCleanup(() => {
+    window.removeEventListener("beforeunload", handleBeforeUnload)
+    document.removeEventListener("visibilitychange", handleVisibilityChange)
+  })
+
+  // --- Reconnect: restore position from localStorage when host rejoins with existing stream ---
+  createEffect(() => {
+    if (!room.state.connected || !room.state.isHost || !room.state.streamUrl || !room.state.currentEpisode) return
+    // Only fire when initialSeek hasn't been set yet (i.e. reconnect, not fresh episode select)
+    if (initialSeek() !== undefined) return
+    const uid = userId()
+    const src = sourceUrl()
+    const epId = room.state.currentEpisode.id
+    if (!uid || !src) return
+    const localPos = getPositionFromLocal(uid, src, epId)
+    if (localPos && localPos > 0) {
+      setInitialSeek(localPos)
+    } else if (room.state.currentTime > 0) {
+      setInitialSeek(room.state.currentTime)
+    }
+  })
 
   const currentDub = () => room.state.show?.dubs[dubIndex()] ?? null
   const episodes = () => currentDub()?.episodes ?? []
