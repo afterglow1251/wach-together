@@ -41,6 +41,7 @@ import type {
   PlaybackPositionSaveRequest,
   PlaybackPositionSaveResponse,
   PlaybackPositionGetResponse,
+  PlaybackPositionSingleResponse,
 } from "../../shared/api-types"
 
 function post(body: unknown) {
@@ -156,4 +157,13 @@ export const api = {
 
   getPlaybackPositions: (userId: number): Promise<PlaybackPositionGetResponse> =>
     fetch(`/api/playback-position?userId=${userId}`).then((r) => r.json()),
+
+  getPlaybackPosition: (
+    userId: number,
+    sourceUrl: string,
+    episodeId?: string,
+  ): Promise<PlaybackPositionSingleResponse> =>
+    fetch(
+      `/api/playback-position/single?userId=${userId}&sourceUrl=${encodeURIComponent(sourceUrl)}${episodeId ? `&episodeId=${encodeURIComponent(episodeId)}` : ""}`,
+    ).then((r) => r.json()),
 }

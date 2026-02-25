@@ -101,11 +101,19 @@ export default function RoomPage() {
     room.selectEpisode(ep)
     setAutoMarkedId(null)
     try {
-      const resp = await api.stream({ url: ep.url })
-      if (resp.ok && resp.streamUrl) {
-        room.streamReady(resp.streamUrl)
+      const [streamResp, posResp] = await Promise.all([
+        api.stream({ url: ep.url }),
+        userId() && sourceUrl() ? api.getPlaybackPosition(userId()!, sourceUrl()!, ep.id) : Promise.resolve(null),
+      ])
+      if (posResp?.ok && posResp.position) {
+        setInitialSeek(posResp.position.position)
       } else {
-        toast.error(resp.error ?? "Failed to get stream")
+        setInitialSeek(undefined)
+      }
+      if (streamResp.ok && streamResp.streamUrl) {
+        room.streamReady(streamResp.streamUrl)
+      } else {
+        toast.error(streamResp.error ?? "Failed to get stream")
       }
     } catch {
       toast.error("Server connection error")

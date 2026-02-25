@@ -247,6 +247,13 @@ export interface PlaybackPositionGetResponse {
   error?: string
 }
 
+// GET /api/playback-position/single?userId=&sourceUrl=&episodeId=
+export interface PlaybackPositionSingleResponse {
+  ok: boolean
+  position?: PlaybackPosition
+  error?: string
+}
+
 // GET /api/users/search?q=&userId=
 export interface UserSearchResponse {
   ok: boolean

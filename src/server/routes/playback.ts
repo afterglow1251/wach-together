@@ -56,6 +56,45 @@ export default new Elysia()
     },
   )
 
+  // Get single playback position for a specific episode
+  .get("/api/playback-position/single", async ({ query }) => {
+    const userId = parseInt(query.userId as string)
+    if (!userId) return { ok: false, error: "Missing userId" }
+    const sourceUrl = query.sourceUrl as string
+    if (!sourceUrl) return { ok: false, error: "Missing sourceUrl" }
+    const episodeId = (query.episodeId as string) || null
+
+    const [row] = await db
+      .select()
+      .from(playbackPositions)
+      .where(
+        and(
+          eq(playbackPositions.userId, userId),
+          eq(playbackPositions.sourceUrl, sourceUrl),
+          episodeId ? eq(playbackPositions.episodeId, episodeId) : sql`${playbackPositions.episodeId} IS NULL`,
+        ),
+      )
+      .limit(1)
+
+    if (!row) return { ok: true }
+
+    return {
+      ok: true,
+      position: {
+        id: row.id,
+        sourceUrl: row.sourceUrl,
+        episodeId: row.episodeId,
+        episodeUrl: row.episodeUrl,
+        title: row.title,
+        poster: row.poster,
+        episodeName: row.episodeName,
+        position: row.position,
+        duration: row.duration,
+        updatedAt: row.updatedAt?.toISOString() ?? null,
+      },
+    }
+  })
+
   // Get playback positions (continue watching)
   .get("/api/playback-position", async ({ query }) => {
     const userId = parseInt(query.userId as string)
