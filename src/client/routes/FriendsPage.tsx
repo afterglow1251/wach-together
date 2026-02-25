@@ -260,7 +260,15 @@ export default function FriendsPage() {
         <Show
           when={(friends.data?.length ?? 0) > 0}
           fallback={
-            <Show when={(requests.data?.length ?? 0) === 0 && (sentRequests.data?.length ?? 0) === 0}>
+            <Show
+              when={
+                !friends.isLoading &&
+                !requests.isLoading &&
+                !sentRequests.isLoading &&
+                (requests.data?.length ?? 0) === 0 &&
+                (sentRequests.data?.length ?? 0) === 0
+              }
+            >
               <div class="text-center py-10 text-muted">
                 <div
                   class="text-4xl text-accent opacity-30 mb-3"
