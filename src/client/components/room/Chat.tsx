@@ -66,8 +66,11 @@ export default function Chat(props: {
   }
 
   function autoResizeTextarea(el: HTMLTextAreaElement) {
+    el.style.overflow = "hidden"
     el.style.height = "auto"
-    el.style.height = Math.min(el.scrollHeight, 120) + "px"
+    const h = Math.min(el.scrollHeight, 120)
+    el.style.height = h + "px"
+    if (el.scrollHeight > 120) el.style.overflow = "auto"
   }
 
   function handleSend() {
@@ -134,7 +137,7 @@ export default function Chat(props: {
 
       <div
         ref={messagesEl}
-        class="flex-1 overflow-y-auto flex flex-col gap-2 mb-2.5 min-h-[60px] pt-5"
+        class="flex-1 overflow-y-auto flex flex-col gap-2 mb-2.5 min-h-[60px] pt-5 pb-4"
         onScroll={onScroll}
       >
         <For each={props.messages}>
@@ -319,15 +322,15 @@ export default function Chat(props: {
             )
           }}
         </For>
-        <Show when={props.typingUser}>
-          <div
-            class="text-xs text-accent italic px-2.5 opacity-80"
-            style={{ animation: "typing-pulse 1s ease-in-out infinite" }}
-          >
-            {props.typingUser} is writing something sweet...
-          </div>
-        </Show>
       </div>
+      <Show when={props.typingUser}>
+        <div
+          class="absolute bottom-[52px] left-5 right-5 text-xs text-accent italic px-2.5 opacity-80 pointer-events-none"
+          style={{ animation: "typing-pulse 1s ease-in-out infinite" }}
+        >
+          {props.typingUser} is writing something sweet...
+        </div>
+      </Show>
 
       {/* Emoji picker portal — rendered outside scroll container */}
       <Show when={emojiTarget()}>
