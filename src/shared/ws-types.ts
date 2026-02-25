@@ -15,6 +15,7 @@ export type WSClientMessage =
   | { type: "chat"; clientId: string; text: string; replyTo?: number }
   | { type: "reaction"; clientId: string; emoji: string }
   | { type: "chat-reaction"; clientId: string; msgId: number; emoji: string }
+  | { type: "chat-edit"; clientId: string; msgId: number; text: string }
   | { type: "typing"; clientId: string }
   | { type: "disconnect"; clientId: string }
 
@@ -39,6 +40,7 @@ export type WSServerMessage =
     }
   | { type: "reaction"; name: string; emoji: string }
   | { type: "chat-reaction"; msgId: number; emoji: string; name: string; action: "add" | "remove" }
+  | { type: "chat-edit"; msgId: number; text: string }
   | { type: "typing"; name: string }
   | { type: "error"; message: string }
   | { type: "friend-request-received"; from: { id: number; username: string } }

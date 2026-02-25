@@ -345,11 +345,28 @@ export default new Elysia().ws("/ws", {
           }
         }
 
+        const text = msg.text.slice(0, 2000)
         const time = Date.now()
-        room.chatHistory.push({ msgId, name: state.name, text: msg.text, time, replyTo })
+        room.chatHistory.push({ msgId, name: state.name, text, time, replyTo })
         if (room.chatHistory.length > 100) room.chatHistory.shift()
 
-        broadcastToRoom(room, { type: "chat", name: state.name, text: msg.text, time, msgId, replyTo })
+        broadcastToRoom(room, { type: "chat", name: state.name, text, time, msgId, replyTo })
+        break
+      }
+
+      case "chat-edit": {
+        const state = wsState.get(cid)
+        if (!state?.roomCode) return
+        const room = getRoom(state.roomCode)
+        if (!room) return
+
+        const historyMsg = room.chatHistory.find((m) => m.msgId === msg.msgId)
+        if (!historyMsg || historyMsg.name !== state.name) return
+
+        historyMsg.text = msg.text.slice(0, 2000)
+        historyMsg.edited = true
+
+        broadcastToRoom(room, { type: "chat-edit", msgId: msg.msgId, text: historyMsg.text })
         break
       }
 

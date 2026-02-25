@@ -21,6 +21,7 @@ export interface Room {
     name: string
     text: string
     time: number
+    edited?: boolean
     replyTo?: { msgId: number; name: string; text: string }
   }>
   chatReactions: Map<number, Map<string, Set<string>>>

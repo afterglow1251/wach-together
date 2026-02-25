@@ -8,13 +8,14 @@ export default function Chat(props: {
   typingUser: string | null
   replyingTo: ChatMsg | null
   onSend: (text: string) => void
+  onEdit: (msgId: number, text: string) => void
   onTyping: () => void
   onReply: (msg: ChatMsg) => void
   onCancelReply: () => void
   onReaction: (msgId: number, emoji: string) => void
 }) {
   let messagesEl!: HTMLDivElement
-  let inputEl!: HTMLInputElement
+  let inputEl!: HTMLTextAreaElement
 
   // Hovered message id for action bar
   const [hoveredMsgId, setHoveredMsgId] = createSignal<number | null>(null)
@@ -26,9 +27,34 @@ export default function Chat(props: {
     left: number
   } | null>(null)
 
+  // Editing state
+  const [editingMsgId, setEditingMsgId] = createSignal<number | null>(null)
+  const [editText, setEditText] = createSignal("")
+
+  function scrollToBottom() {
+    if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight
+  }
+
+  // Auto-scroll on new messages
   createEffect(() => {
     props.messages.length
-    if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight
+    scrollToBottom()
+  })
+
+  // Auto-scroll when reactions change on last message
+  createEffect(() => {
+    const msgs = props.messages
+    if (msgs.length === 0) return
+    const last = msgs[msgs.length - 1]
+    // Track reactions array to trigger on changes
+    last.reactions.length
+    last.reactions.forEach((r) => r.count)
+    scrollToBottom()
+  })
+
+  // Auto-scroll when typing indicator appears
+  createEffect(() => {
+    if (props.typingUser) scrollToBottom()
   })
 
   // Close emoji picker on scroll
@@ -39,11 +65,36 @@ export default function Chat(props: {
     }
   }
 
+  function autoResizeTextarea(el: HTMLTextAreaElement) {
+    el.style.height = "auto"
+    el.style.height = Math.min(el.scrollHeight, 120) + "px"
+  }
+
   function handleSend() {
     const text = inputEl.value.trim()
     if (!text) return
     props.onSend(text)
     inputEl.value = ""
+    inputEl.style.height = "auto"
+  }
+
+  function startEdit(msg: ChatMsg) {
+    setEditingMsgId(msg.msgId)
+    setEditText(msg.text)
+    setHoveredMsgId(null)
+  }
+
+  function cancelEdit() {
+    setEditingMsgId(null)
+    setEditText("")
+  }
+
+  function saveEdit() {
+    const msgId = editingMsgId()
+    const text = editText().trim()
+    if (msgId == null || !text) return
+    props.onEdit(msgId, text)
+    cancelEdit()
   }
 
   function scrollToMessage(msgId: number) {
@@ -91,6 +142,7 @@ export default function Chat(props: {
             let msgEl!: HTMLDivElement
             const isHovered = () => hoveredMsgId() === msg.msgId && msg.msgId != null
             const isEmojiOpen = () => emojiTarget()?.msgId === msg.msgId
+            const isEditing = () => editingMsgId() === msg.msgId
 
             return (
               <div
@@ -104,7 +156,7 @@ export default function Chat(props: {
                 }}
               >
                 {/* Discord-style action bar — sits on top edge of message */}
-                <Show when={isHovered() || isEmojiOpen()}>
+                <Show when={(isHovered() || isEmojiOpen()) && !isEditing()}>
                   <div
                     class={`absolute -top-3.5 z-10 flex bg-card border border-border rounded-md shadow-md ${
                       msg.isMe ? "right-1" : "left-1"
@@ -133,6 +185,27 @@ export default function Chat(props: {
                         <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
                       </svg>
                     </button>
+                    <Show when={msg.isMe}>
+                      <button
+                        onClick={() => startEdit(msg)}
+                        class="w-7 h-6 flex items-center justify-center text-muted hover:text-accent hover:bg-hover cursor-pointer border-none bg-transparent text-xs transition-colors"
+                        title="Edit"
+                      >
+                        <svg
+                          width="13"
+                          height="13"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                          <path d="m15 5 4 4" />
+                        </svg>
+                      </button>
+                    </Show>
                     <button
                       onClick={(e) => {
                         if (isEmojiOpen()) {
@@ -190,8 +263,33 @@ export default function Chat(props: {
                   <Show when={!msg.isMe}>
                     <span class="text-[11px] font-semibold opacity-70 block mb-0.5">{msg.name}</span>
                   </Show>
-                  <span>{msg.text}</span>
+
+                  <Show
+                    when={!isEditing()}
+                    fallback={
+                      <input
+                        type="text"
+                        value={editText()}
+                        maxLength={2000}
+                        class={`w-full px-1.5 py-0.5 rounded text-[13px] outline-none border ${
+                          msg.isMe
+                            ? "bg-white/20 border-white/30 text-white placeholder:text-white/50"
+                            : "bg-white border-border text-text"
+                        }`}
+                        onInput={(e) => setEditText(e.currentTarget.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveEdit()
+                          if (e.key === "Escape") cancelEdit()
+                        }}
+                        ref={(el) => setTimeout(() => el.focus(), 0)}
+                      />
+                    }
+                  >
+                    <span style={{ "white-space": "pre-wrap" }}>{msg.text}</span>
+                  </Show>
+
                   <span class={`text-[9px] block text-right mt-0.5 ${msg.isMe ? "opacity-60" : "opacity-40"}`}>
+                    {msg.edited && <span class="mr-1">(edited)</span>}
                     {new Date(msg.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </span>
                 </div>
@@ -283,18 +381,25 @@ export default function Chat(props: {
         </div>
       </Show>
 
-      <div class="flex gap-1.5">
-        <input
+      <div class="flex gap-1.5 items-end">
+        <textarea
           ref={inputEl}
-          type="text"
+          rows={1}
           placeholder="Write something sweet..."
-          maxLength={200}
-          class="flex-1 px-3 py-2 bg-input border border-border rounded-full text-text text-[13px] outline-none transition-colors focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-glow)]"
+          maxLength={2000}
+          class="flex-1 px-3 py-2 bg-input border border-border rounded-2xl text-text text-[13px] outline-none transition-colors focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-glow)] resize-none"
+          style={{ "max-height": "120px" }}
           onKeyDown={(e) => {
-            if (e.key === "Enter") handleSend()
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault()
+              handleSend()
+            }
             if (e.key === "Escape" && props.replyingTo) props.onCancelReply()
           }}
-          onInput={() => props.onTyping()}
+          onInput={(e) => {
+            props.onTyping()
+            autoResizeTextarea(e.currentTarget)
+          }}
         />
         <button
           onClick={handleSend}

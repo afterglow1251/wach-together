@@ -229,6 +229,7 @@ export default function RoomPage() {
           typingUser={room.state.typingUser}
           replyingTo={room.state.replyingTo}
           onSend={(text) => room.sendChat(text)}
+          onEdit={(msgId, text) => room.sendChatEdit(msgId, text)}
           onTyping={() => room.sendTyping()}
           onReply={(msg) => room.setReplyingTo(msg)}
           onCancelReply={() => room.setReplyingTo(null)}

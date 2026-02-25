@@ -97,7 +97,7 @@ export default function FullscreenChat(props: {
               ref={inputEl}
               type="text"
               placeholder="Write something sweet..."
-              maxLength={200}
+              maxLength={2000}
               class="w-[280px] px-3.5 py-2 text-[13px] rounded-full bg-black/60 backdrop-blur-md border border-accent/30 text-white outline-none focus:border-accent"
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSend()

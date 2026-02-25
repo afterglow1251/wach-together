@@ -18,6 +18,7 @@ export interface ChatMsg {
   id: number
   time: number
   msgId: number
+  edited?: boolean
   replyTo?: { msgId: number; name: string; text: string }
   reactions: ChatMsgReaction[]
 }
@@ -53,6 +54,7 @@ interface RoomActions {
   sendSeek: (time: number) => void
   sendSync: (time: number, isPlaying: boolean) => void
   sendChat: (text: string) => void
+  sendChatEdit: (msgId: number, text: string) => void
   sendReaction: (emoji: string) => void
   sendChatReaction: (msgId: number, emoji: string) => void
   sendTyping: () => void
@@ -172,6 +174,17 @@ export const RoomProvider: ParentComponent<{ username: Accessor<string>; userId:
         )
         break
       }
+      case "chat-edit": {
+        setState(
+          produce((s) => {
+            const chatMsg = s.chat.find((m) => m.msgId === msg.msgId)
+            if (!chatMsg) return
+            chatMsg.text = msg.text
+            chatMsg.edited = true
+          }),
+        )
+        break
+      }
       case "reaction":
         setState({ lastReaction: { emoji: msg.emoji, id: ++reactionIdCounter } })
         break
@@ -219,6 +232,7 @@ export const RoomProvider: ParentComponent<{ username: Accessor<string>; userId:
       id: ++chatIdCounter,
       time: m.time,
       msgId: m.msgId,
+      edited: m.edited,
       replyTo: m.replyTo,
       reactions: reactionsByMsg.get(m.msgId) ?? [],
     }))
@@ -325,6 +339,10 @@ export const RoomProvider: ParentComponent<{ username: Accessor<string>; userId:
       const replyTo = state.replyingTo?.msgId
       ws.send({ type: "chat", clientId: ws.getClientId(), text, replyTo })
       setState({ replyingTo: null })
+    },
+
+    sendChatEdit(msgId, text) {
+      ws.send({ type: "chat-edit", clientId: ws.getClientId(), msgId, text })
     },
 
     sendReaction(emoji) {
