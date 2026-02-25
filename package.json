@@ -13,6 +13,8 @@
     "test:coverage": "vitest run --coverage",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
     "prepare": "husky"
   },
   "dependencies": {
