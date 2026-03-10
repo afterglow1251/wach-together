@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia"
 import { db } from "../db"
 import { library, watchedEpisodes } from "../db/schema"
 import { eq, sql } from "drizzle-orm"
-import { parseUakinoPage, withTimeout } from "../scraper"
+import { parsePage, withTimeout } from "../scraper"
 import type { LibraryStatus } from "../../shared/types"
 
 const errMsg = (e: unknown): string => (e instanceof Error ? e.message : "Unknown error")
@@ -42,7 +42,7 @@ export default new Elysia()
       try {
         const { userId, sourceUrl, status } = body
 
-        const show = await withTimeout(parseUakinoPage(sourceUrl), 30000, "Timed out loading page (30s)")
+        const show = await withTimeout(parsePage(sourceUrl), 30000, "Timed out loading page (30s)")
 
         const totalEpisodes = Math.max(...show.dubs.map((d) => d.episodes.length), 0)
 

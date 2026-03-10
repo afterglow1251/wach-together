@@ -10,11 +10,12 @@ export default new Elysia()
 
     try {
       const fullUrl = url.startsWith("http") ? url : `https://uakino.best${url}`
+      const referer = fullUrl.includes("uaserials") ? "https://uaserials.my/" : "https://uakino.best/"
       const resp = await fetch(fullUrl, {
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-          Referer: "https://uakino.best/",
+          Referer: referer,
         },
       })
 
@@ -41,12 +42,13 @@ export default new Elysia()
     if (!url) return new Response("Missing url", { status: 400 })
 
     try {
+      const isHdvb = url.includes("hdvbua.pro")
       const resp = await fetch(url, {
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-          Referer: "https://ashdi.vip/",
-          Origin: "https://ashdi.vip",
+          Referer: isHdvb ? "https://hdvbua.pro/" : "https://ashdi.vip/",
+          Origin: isHdvb ? "https://hdvbua.pro" : "https://ashdi.vip",
         },
       })
 

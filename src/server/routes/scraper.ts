@@ -1,5 +1,5 @@
 import { Elysia, t } from "elysia"
-import { parseUakinoPage, extractStreamUrl, searchUakino, browseUakino, withTimeout } from "../scraper"
+import { parsePage, extractStreamUrl, searchUakino, browseUakino, withTimeout } from "../scraper"
 
 const errMsg = (e: unknown): string => (e instanceof Error ? e.message : "Unknown error")
 
@@ -9,7 +9,7 @@ export default new Elysia()
     "/api/parse",
     async ({ body }) => {
       try {
-        const show = await withTimeout(parseUakinoPage(body.url), 30000, "Timed out loading page (30s)")
+        const show = await withTimeout(parsePage(body.url), 30000, "Timed out loading page (30s)")
         return { ok: true, show }
       } catch (e) {
         return { ok: false, error: errMsg(e) }

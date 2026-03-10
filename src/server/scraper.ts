@@ -150,6 +150,9 @@ function parseInlineFallback(html: string, title: string, poster: string): Parse
 }
 
 export async function extractStreamUrl(playerUrl: string): Promise<string> {
+  // If the URL is already an m3u8 stream (e.g. from uaserials/hdvbua), return directly
+  if (playerUrl.includes(".m3u8")) return playerUrl
+
   const resp = await fetch(playerUrl, {
     headers: { ...HEADERS, Referer: "https://uakino.best/" },
   })
@@ -229,6 +232,156 @@ async function tryGet2FunApi(param: string): Promise<string | null> {
   } catch {
     return null
   }
+}
+
+// --- Uaserials ---
+
+export async function parseUaserialsPage(url: string): Promise<ParsedShow> {
+  const resp = await fetch(url, {
+    headers: { ...HEADERS, Referer: "https://uaserials.my/" },
+  })
+  if (!resp.ok) throw new Error(`Failed to fetch uaserials page: ${resp.status}`)
+
+  const html = await resp.text()
+
+  // Title from <h1 class="short-title"><div><span class="oname_ua">Title</span></div></h1>
+  const titleMatch = html.match(/class="oname_ua"[^>]*>([\s\S]*?)<\/span>/) || html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)
+  const title = titleMatch?.[1]?.replace(/<[^>]+>/g, "").trim() || "Unknown"
+
+  // Poster from <img ... src="/posters/{id}.webp">
+  const posterMatch = html.match(/<img[^>]+src="(\/posters\/[^"]+)"/)
+  const poster = posterMatch ? `https://uaserials.my${posterMatch[1]}` : ""
+
+  // Find hdvbua embed iframe: <iframe ... data-src="https://hdvbua.pro/embed/{id}">
+  const iframeMatch = html.match(/<iframe[^>]+data-src="(https:\/\/hdvbua\.pro\/embed\/[^"]+)"/)
+  if (!iframeMatch) throw new Error("Could not find hdvbua player on this page")
+
+  const embedUrl = iframeMatch[1]
+  const embedResp = await fetch(embedUrl, {
+    headers: { ...HEADERS, Referer: url },
+  })
+  if (!embedResp.ok) throw new Error(`Failed to fetch player embed: ${embedResp.status}`)
+
+  const embedHtml = await embedResp.text()
+
+  // Extract file: property from Playerjs init — can be a JSON string or a direct m3u8 URL
+  const fileMatch =
+    embedHtml.match(/file:\s*["']([\s\S]*?)["'],\s*\n?\s*(?:subtitle|\/\/|poster|default_quality)/) ||
+    embedHtml.match(/file:\s*["']([\s\S]*?)["']/)
+  if (!fileMatch) throw new Error("Could not find file data in player embed")
+
+  const fileValue = fileMatch[1].trim()
+
+  // Direct m3u8 URL (movie)
+  if (fileValue.includes(".m3u8") && !fileValue.startsWith("[")) {
+    return {
+      title,
+      poster,
+      dubs: [
+        {
+          name: "Основне",
+          episodes: [{ id: "0-0", name: title, url: fileValue, dubName: "Основне" }],
+        },
+      ],
+    }
+  }
+
+  // JSON playlist (series)
+  let playlist: HdvbPlaylistItem[]
+  try {
+    playlist = JSON.parse(fileValue)
+  } catch {
+    throw new Error("Could not parse player playlist JSON")
+  }
+
+  const dubs = flattenHdvbPlaylist(playlist)
+  if (dubs.length === 0) throw new Error("Could not find any episodes in player playlist")
+
+  return { title, poster, dubs }
+}
+
+interface HdvbPlaylistItem {
+  title: string
+  file?: string
+  id?: string
+  folder?: HdvbPlaylistItem[]
+}
+
+function flattenHdvbPlaylist(items: HdvbPlaylistItem[]): DubGroup[] {
+  const dubs: DubGroup[] = []
+
+  // Detect structure depth: season → dub → episodes  OR  dub → episodes  OR  flat episodes
+  if (items.length === 0) return dubs
+
+  const hasSeasons = items.every((i) => i.folder && !i.file)
+  if (!hasSeasons) {
+    // Flat list of episodes (rare but possible)
+    if (items[0].file) {
+      const episodes: Episode[] = items.map((item, i) => ({
+        id: `0-${i}`,
+        name: item.title || `Серія ${i + 1}`,
+        url: item.file!,
+        dubName: "Основне",
+      }))
+      dubs.push({ name: "Основне", episodes })
+      return dubs
+    }
+  }
+
+  // Iterate seasons (or top-level groups)
+  for (const seasonItem of items) {
+    if (!seasonItem.folder) continue
+    const seasonTitle = seasonItem.title
+
+    for (const dubItem of seasonItem.folder) {
+      if (dubItem.folder) {
+        // season → dub → episodes
+        const dubName = items.length > 1 ? `${seasonTitle} • ${dubItem.title}` : dubItem.title
+        const groupIndex = dubs.length
+        const episodes: Episode[] = dubItem.folder
+          .filter((ep) => ep.file)
+          .map((ep, i) => ({
+            id: `${groupIndex}-${i}`,
+            name: ep.title || `Серія ${i + 1}`,
+            url: ep.file!,
+            dubName,
+          }))
+        if (episodes.length > 0) dubs.push({ name: dubName, episodes })
+      } else if (dubItem.file) {
+        // season → episodes directly (no dub layer)
+        const dubName = seasonTitle
+        let group = dubs.find((d) => d.name === dubName)
+        if (!group) {
+          group = { name: dubName, episodes: [] }
+          dubs.push(group)
+        }
+        const epIndex = group.episodes.length
+        group.episodes.push({
+          id: `${dubs.indexOf(group)}-${epIndex}`,
+          name: dubItem.title || `Серія ${epIndex + 1}`,
+          url: dubItem.file,
+          dubName,
+        })
+      }
+    }
+  }
+
+  return dubs
+}
+
+// --- Universal parser (auto-detect source by URL) ---
+
+export function detectSource(url: string): "uakino" | "uaserials" | null {
+  if (url.includes("uakino")) return "uakino"
+  if (url.includes("uaserials")) return "uaserials"
+  return null
+}
+
+export async function parsePage(url: string): Promise<ParsedShow> {
+  const source = detectSource(url)
+  if (source === "uaserials") return parseUaserialsPage(url)
+  if (source === "uakino") return parseUakinoPage(url)
+  throw new Error("Unsupported source. Use uakino or uaserials URLs.")
 }
 
 // --- Search & Browse ---
