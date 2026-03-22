@@ -22,6 +22,7 @@ const VideoPlayer: ParentComponent<{
   let ignoreEvents = false
   let syncInterval: ReturnType<typeof setInterval> | null = null
   let clickTimer: ReturnType<typeof setTimeout> | null = null
+  let cursorTimer: ReturnType<typeof setTimeout> | null = null
   let didInitialSeek = false
 
   onMount(() => {
@@ -32,6 +33,19 @@ const VideoPlayer: ParentComponent<{
       seekTime: 5,
       clickToPlay: false,
       fullscreen: { iosNative: true, container: "#plyr-wrapper" },
+    })
+
+    // Auto-hide cursor after 3s of no movement
+    const showCursor = () => {
+      wrapperEl.classList.remove("cursor-none")
+      if (cursorTimer) clearTimeout(cursorTimer)
+      cursorTimer = setTimeout(() => wrapperEl.classList.add("cursor-none"), 3000)
+    }
+    wrapperEl.addEventListener("mousemove", showCursor)
+    wrapperEl.addEventListener("mouseleave", () => {
+      wrapperEl.classList.remove("cursor-none")
+      if (cursorTimer) clearTimeout(cursorTimer)
+      cursorTimer = null
     })
 
     // Custom click: single = play/pause, double = fullscreen
@@ -229,6 +243,7 @@ const VideoPlayer: ParentComponent<{
 
   onCleanup(() => {
     if (syncInterval) clearInterval(syncInterval)
+    if (cursorTimer) clearTimeout(cursorTimer)
     if (hls) hls.destroy()
     plyr?.destroy()
   })
