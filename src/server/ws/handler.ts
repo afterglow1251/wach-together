@@ -418,6 +418,63 @@ export default new Elysia().ws("/ws", {
         break
       }
 
+      case "webrtc-ready": {
+        const state = wsState.get(cid)
+        if (!state?.roomCode) return
+        const room = getRoom(state.roomCode)
+        if (!room) return
+        broadcastToRoom(room, { type: "webrtc-ready", clientId: cid, name: state.name }, cid)
+        break
+      }
+
+      case "webrtc-offer": {
+        const state = wsState.get(cid)
+        if (!state?.roomCode) return
+        const room = getRoom(state.roomCode)
+        if (!room) return
+        const target = room.clients.get(msg.targetClientId)
+        if (!target) return
+        try {
+          target.ws.send(JSON.stringify({ type: "webrtc-offer", fromClientId: cid, sdp: msg.sdp }))
+        } catch {}
+        break
+      }
+
+      case "webrtc-answer": {
+        const state = wsState.get(cid)
+        if (!state?.roomCode) return
+        const room = getRoom(state.roomCode)
+        if (!room) return
+        const target = room.clients.get(msg.targetClientId)
+        if (!target) return
+        try {
+          target.ws.send(JSON.stringify({ type: "webrtc-answer", fromClientId: cid, sdp: msg.sdp }))
+        } catch {}
+        break
+      }
+
+      case "webrtc-ice": {
+        const state = wsState.get(cid)
+        if (!state?.roomCode) return
+        const room = getRoom(state.roomCode)
+        if (!room) return
+        const target = room.clients.get(msg.targetClientId)
+        if (!target) return
+        try {
+          target.ws.send(JSON.stringify({ type: "webrtc-ice", fromClientId: cid, candidate: msg.candidate }))
+        } catch {}
+        break
+      }
+
+      case "webrtc-stop": {
+        const state = wsState.get(cid)
+        if (!state?.roomCode) return
+        const room = getRoom(state.roomCode)
+        if (!room) return
+        broadcastToRoom(room, { type: "webrtc-stop", clientId: cid }, cid)
+        break
+      }
+
       case "disconnect": {
         const pendingTimer = pendingDisconnects.get(cid)
         if (pendingTimer) {

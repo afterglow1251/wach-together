@@ -18,6 +18,11 @@ export type WSClientMessage =
   | { type: "chat-edit"; clientId: string; msgId: number; text: string }
   | { type: "typing"; clientId: string }
   | { type: "disconnect"; clientId: string }
+  | { type: "webrtc-ready"; clientId: string }
+  | { type: "webrtc-offer"; clientId: string; targetClientId: string; sdp: string }
+  | { type: "webrtc-answer"; clientId: string; targetClientId: string; sdp: string }
+  | { type: "webrtc-ice"; clientId: string; targetClientId: string; candidate: string }
+  | { type: "webrtc-stop"; clientId: string }
 
 // Server → Client
 export type WSServerMessage =
@@ -47,3 +52,8 @@ export type WSServerMessage =
   | { type: "friend-request-cancelled"; by: number }
   | { type: "friend-accepted"; by: { id: number; username: string } }
   | { type: "friend-removed"; by: { id: number; username: string } }
+  | { type: "webrtc-ready"; clientId: string; name: string }
+  | { type: "webrtc-offer"; fromClientId: string; sdp: string }
+  | { type: "webrtc-answer"; fromClientId: string; sdp: string }
+  | { type: "webrtc-ice"; fromClientId: string; candidate: string }
+  | { type: "webrtc-stop"; clientId: string }

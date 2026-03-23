@@ -17,6 +17,9 @@ import VideoPlayer from "../components/room/VideoPlayer"
 import SeekOverlay from "../components/room/SeekOverlay"
 import ReactionBar from "../components/room/ReactionBar"
 import FullscreenChat from "../components/room/FullscreenChat"
+import CameraToggle from "../components/room/CameraToggle"
+import WebcamOverlay from "../components/room/WebcamOverlay"
+import { WebcamProvider } from "../stores/webcam"
 import type { Episode } from "../../shared/types"
 
 export default function RoomPage() {
@@ -351,47 +354,52 @@ export default function RoomPage() {
 
       {/* Main content */}
       <main class="flex-1 flex flex-col min-w-0 bg-black max-md:order-1 max-md:min-h-[40vh]">
-        <VideoPlayer
-          streamUrl={room.state.streamUrl}
-          isHost={room.state.isHost}
-          isPlaying={room.state.isPlaying}
-          currentTime={room.state.currentTime}
-          initialSeek={initialSeek()}
-          onPlay={(t) => room.sendPlay(t)}
-          onPause={(t) => room.sendPause(t)}
-          onSeek={(t) => room.sendSeek(t)}
-          onSync={(t, p) => room.sendSync(t, p)}
-          onTimeUpdate={handleTimeUpdate}
-          onPauseWithDuration={handlePause}
-        >
-          <SeekOverlay />
-          <ReactionBar onReaction={(e) => room.sendReaction(e)} lastReaction={room.state.lastReaction} />
-          <FullscreenChat
-            messages={room.state.chat}
-            onSend={(text) => room.sendChat(text)}
-            onTyping={() => room.sendTyping()}
-          />
+        <WebcamProvider>
+          <VideoPlayer
+            streamUrl={room.state.streamUrl}
+            isHost={room.state.isHost}
+            isPlaying={room.state.isPlaying}
+            currentTime={room.state.currentTime}
+            initialSeek={initialSeek()}
+            onPlay={(t) => room.sendPlay(t)}
+            onPause={(t) => room.sendPause(t)}
+            onSeek={(t) => room.sendSeek(t)}
+            onSync={(t, p) => room.sendSync(t, p)}
+            onTimeUpdate={handleTimeUpdate}
+            onPauseWithDuration={handlePause}
+          >
+            <SeekOverlay />
+            <ReactionBar onReaction={(e) => room.sendReaction(e)} lastReaction={room.state.lastReaction} />
+            <FullscreenChat
+              messages={room.state.chat}
+              onSend={(text) => room.sendChat(text)}
+              onTyping={() => room.sendTyping()}
+            />
+            <WebcamOverlay />
+            <CameraToggle />
 
-          {/* Player overlay — shown when no video */}
-          <Show when={!room.state.streamUrl}>
-            <div
-              class="absolute inset-0 z-30 flex items-center justify-center pointer-events-none"
-              style={{
-                background: "radial-gradient(ellipse at 50% 50%, rgba(232, 67, 147, 0.06) 0%, rgba(0, 0, 0, 0.8) 70%)",
-              }}
-            >
-              <div class="text-center">
-                <span
-                  class="block text-5xl text-accent mb-3"
-                  style={{ animation: "heart-pulse 2s ease-in-out infinite" }}
-                >
-                  ♥
-                </span>
-                <p class="text-muted text-[15px] tracking-wide">Pick something to watch together</p>
+            {/* Player overlay — shown when no video */}
+            <Show when={!room.state.streamUrl}>
+              <div
+                class="absolute inset-0 z-30 flex items-center justify-center pointer-events-none"
+                style={{
+                  background:
+                    "radial-gradient(ellipse at 50% 50%, rgba(232, 67, 147, 0.06) 0%, rgba(0, 0, 0, 0.8) 70%)",
+                }}
+              >
+                <div class="text-center">
+                  <span
+                    class="block text-5xl text-accent mb-3"
+                    style={{ animation: "heart-pulse 2s ease-in-out infinite" }}
+                  >
+                    ♥
+                  </span>
+                  <p class="text-muted text-[15px] tracking-wide">Pick something to watch together</p>
+                </div>
               </div>
-            </div>
-          </Show>
-        </VideoPlayer>
+            </Show>
+          </VideoPlayer>
+        </WebcamProvider>
       </main>
     </div>
   )
