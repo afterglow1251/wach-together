@@ -1,13 +1,27 @@
-import { For, Show } from "solid-js"
+import { For, Show, createSignal } from "solid-js"
 import { Eye, EyeOff, Video, VideoOff } from "lucide-solid"
 import { useWebcam } from "../../stores/webcam"
 
 export default function CameraToggle() {
   const webcam = useWebcam()
+  const [menuOpen, setMenuOpen] = createSignal(false)
 
   return (
-    <div class="absolute bottom-[60px] left-3 z-40 group select-none">
-      <div class="absolute bottom-12 left-0 mb-2 flex flex-col gap-1 opacity-0 translate-y-2 pointer-events-none transition-all group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto">
+    <div
+      class="absolute bottom-[60px] left-3 z-40 select-none"
+      onMouseEnter={() => setMenuOpen(true)}
+      onMouseLeave={() => setMenuOpen(false)}
+    >
+      <Show when={menuOpen()}>
+        <div class="absolute bottom-10 left-0 h-8 w-[180px] pointer-events-auto" />
+      </Show>
+      <div
+        class="absolute bottom-12 left-0 mb-2 flex flex-col gap-1 transition-all duration-150"
+        classList={{
+          "opacity-100 translate-y-0 pointer-events-auto": menuOpen(),
+          "opacity-0 translate-y-2 pointer-events-none": !menuOpen(),
+        }}
+      >
         <Show when={webcam.localStream()}>
           <button
             onMouseDown={(e) => {

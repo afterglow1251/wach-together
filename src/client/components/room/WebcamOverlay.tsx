@@ -1,6 +1,5 @@
 import interact from "interactjs"
 import { For, Show, createEffect, onCleanup, onMount } from "solid-js"
-import type { RemoteWebcamStream } from "../../services/webrtc"
 import { useWebcam } from "../../stores/webcam"
 
 type Bounds = { width: number; height: number }

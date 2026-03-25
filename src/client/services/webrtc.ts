@@ -61,7 +61,7 @@ export function getLocalStream() {
 
 export function syncActiveWebcams(clients: Array<{ clientId: string; name: string }>) {
   for (const client of clients) {
-    handleWebrtcReady(client.clientId, client.name)
+    void handleSyncedWebcam(client.clientId, client.name)
   }
 }
 
@@ -75,6 +75,14 @@ export function handleWebrtcReady(remoteId: string, name?: string) {
   if (ws.getClientId() < remoteId) {
     void renegotiate(remoteId)
   }
+}
+
+async function handleSyncedWebcam(remoteId: string, name?: string) {
+  if (remoteId === ws.getClientId()) return
+
+  rememberRemoteName(remoteId, name)
+  getOrCreatePeerConnection(remoteId)
+  await renegotiate(remoteId)
 }
 
 export async function handleOffer(fromClientId: string, sdp: string) {
