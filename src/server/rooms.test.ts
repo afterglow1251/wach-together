@@ -196,12 +196,13 @@ describe("rooms", () => {
       room.sourceUrl = "https://example.com"
       room.isPlaying = true
       room.currentTime = 42.5
+      room.lastSyncAt = Date.now()
 
       const info = rooms.getRoomInfo(room, "host1")
       expect(info.show?.title).toBe("Movie")
       expect(info.sourceUrl).toBe("https://example.com")
       expect(info.isPlaying).toBe(true)
-      expect(info.currentTime).toBe(42.5)
+      expect(info.currentTime).toBeCloseTo(42.5, 2)
     })
   })
 
