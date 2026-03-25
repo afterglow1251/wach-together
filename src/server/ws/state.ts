@@ -52,7 +52,11 @@ export function cleanupClient(cid: string) {
   if (state.roomCode) {
     const room = getRoom(state.roomCode)
     if (room) {
+      const hadActiveWebcam = room.activeWebcams.delete(cid)
       removeClient(room, cid)
+      if (hadActiveWebcam) {
+        broadcastToRoom(room, { type: "webrtc-stop", clientId: cid }, cid)
+      }
       if (room.clients.size > 0) {
         broadcastToRoom(room, {
           type: "user-left",

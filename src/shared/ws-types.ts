@@ -53,6 +53,7 @@ export type WSServerMessage =
   | { type: "friend-accepted"; by: { id: number; username: string } }
   | { type: "friend-removed"; by: { id: number; username: string } }
   | { type: "webrtc-ready"; clientId: string; name: string }
+  | { type: "webrtc-sync"; clients: Array<{ clientId: string; name: string }> }
   | { type: "webrtc-offer"; fromClientId: string; sdp: string }
   | { type: "webrtc-answer"; fromClientId: string; sdp: string }
   | { type: "webrtc-ice"; fromClientId: string; candidate: string }

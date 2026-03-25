@@ -155,7 +155,11 @@ export default new Elysia().ws("/ws", {
         if (existingState?.roomCode) {
           const oldRoom = getRoom(existingState.roomCode)
           if (oldRoom) {
+            const hadActiveWebcam = oldRoom.activeWebcams.delete(cid)
             removeClient(oldRoom, cid)
+            if (hadActiveWebcam) {
+              broadcastToRoom(oldRoom, { type: "webrtc-stop", clientId: cid }, cid)
+            }
             if (oldRoom.clients.size > 0) {
               broadcastToRoom(oldRoom, {
                 type: "user-left",
@@ -202,6 +206,14 @@ export default new Elysia().ws("/ws", {
           `[WS] ${cid} joined room ${room.code}, isHost=${roomInfo.isHost}, clients=${room.clients.size}, hasStream=${!!roomInfo.streamUrl}`,
         )
         ws.send(JSON.stringify({ type: "room-info", room: roomInfo }))
+        if (room.activeWebcams.size > 0) {
+          ws.send(
+            JSON.stringify({
+              type: "webrtc-sync",
+              clients: Array.from(room.activeWebcams, ([clientId, activeName]) => ({ clientId, name: activeName })),
+            }),
+          )
+        }
 
         const viewers = Array.from(room.clients.values()).map((c) => c.name)
         broadcastToRoom(room, { type: "user-joined", name, count: room.clients.size, viewers }, cid)
@@ -423,6 +435,7 @@ export default new Elysia().ws("/ws", {
         if (!state?.roomCode) return
         const room = getRoom(state.roomCode)
         if (!room) return
+        room.activeWebcams.set(cid, state.name)
         broadcastToRoom(room, { type: "webrtc-ready", clientId: cid, name: state.name }, cid)
         break
       }
@@ -471,6 +484,7 @@ export default new Elysia().ws("/ws", {
         if (!state?.roomCode) return
         const room = getRoom(state.roomCode)
         if (!room) return
+        room.activeWebcams.delete(cid)
         broadcastToRoom(room, { type: "webrtc-stop", clientId: cid }, cid)
         break
       }
@@ -487,7 +501,11 @@ export default new Elysia().ws("/ws", {
 
         const room = getRoom(state.roomCode)
         if (room) {
+          const hadActiveWebcam = room.activeWebcams.delete(cid)
           removeClient(room, cid)
+          if (hadActiveWebcam) {
+            broadcastToRoom(room, { type: "webrtc-stop", clientId: cid }, cid)
+          }
           broadcastToRoom(room, {
             type: "user-left",
             name: state.name,

@@ -16,6 +16,7 @@ export interface Room {
   lastSyncAt: number
   clients: Map<string, RoomClient>
   chatMsgCounter: number
+  activeWebcams: Map<string, string>
   chatHistory: Array<{
     msgId: number
     name: string

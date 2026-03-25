@@ -23,6 +23,7 @@
     "drizzle-orm": "^0.45.1",
     "elysia": "^1.2.12",
     "hls.js": "^1.5.0",
+    "interactjs": "^1.10.27",
     "lucide-solid": "^0.564.0",
     "plyr": "^3.7.8",
     "postgres": "^3.4.8",

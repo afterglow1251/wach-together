@@ -6,27 +6,37 @@ import toast from "../lib/toast"
 
 interface WebcamActions {
   cameraOn: () => boolean
-  muted: () => boolean
   localStream: () => MediaStream | null
-  remoteStream: () => MediaStream | null
+  remoteStreams: () => webrtc.RemoteWebcamStream[]
+  visibleRemoteStreams: () => webrtc.RemoteWebcamStream[]
+  selfPreviewHidden: () => boolean
+  isRemoteHidden: (clientId: string) => boolean
   toggleCamera: () => Promise<void>
-  toggleMute: () => void
+  toggleSelfPreview: () => void
+  toggleRemoteVisibility: (clientId: string) => void
 }
 
 const WebcamContext = createContext<WebcamActions>()
 
 export const WebcamProvider: ParentComponent = (props) => {
   const [cameraOn, setCameraOn] = createSignal(false)
-  const [muted, setMuted] = createSignal(false)
   const [localStream, setLocalStream] = createSignal<MediaStream | null>(null)
-  const [remoteStream, setRemoteStream] = createSignal<MediaStream | null>(null)
+  const [remoteStreams, setRemoteStreams] = createSignal<webrtc.RemoteWebcamStream[]>([])
+  const [selfPreviewHidden, setSelfPreviewHidden] = createSignal(false)
+  const [hiddenRemoteIds, setHiddenRemoteIds] = createSignal<string[]>([])
 
-  webrtc.setCallbacks(setLocalStream, setRemoteStream)
+  webrtc.setCallbacks(setLocalStream, setRemoteStreams)
 
   function handleMessage(msg: WSServerMessage) {
     switch (msg.type) {
+      case "room-info":
+        webrtc.syncActiveWebcams(msg.room.activeWebcams ?? [])
+        break
+      case "webrtc-sync":
+        webrtc.syncActiveWebcams(msg.clients)
+        break
       case "webrtc-ready":
-        webrtc.handleWebrtcReady(msg.clientId)
+        webrtc.handleWebrtcReady(msg.clientId, msg.name)
         break
       case "webrtc-offer":
         webrtc.handleOffer(msg.fromClientId, msg.sdp)
@@ -39,6 +49,7 @@ export const WebcamProvider: ParentComponent = (props) => {
         break
       case "webrtc-stop":
         webrtc.handleRemoteStop(msg.clientId)
+        setHiddenRemoteIds((ids) => ids.filter((id) => id !== msg.clientId))
         break
     }
   }
@@ -55,21 +66,23 @@ export const WebcamProvider: ParentComponent = (props) => {
 
   const actions: WebcamActions = {
     cameraOn,
-    muted,
     localStream,
-    remoteStream,
+    remoteStreams,
+    visibleRemoteStreams: () => remoteStreams().filter((stream) => !hiddenRemoteIds().includes(stream.clientId)),
+    selfPreviewHidden,
+    isRemoteHidden: (clientId) => hiddenRemoteIds().includes(clientId),
 
     async toggleCamera() {
       if (cameraOn()) {
         ws.send({ type: "webrtc-stop", clientId: ws.getClientId() })
-        webrtc.stopCamera()
+        await webrtc.stopCamera()
         setCameraOn(false)
-        setMuted(false)
+        setSelfPreviewHidden(false)
       } else {
         try {
           await webrtc.startCamera()
           setCameraOn(true)
-          setMuted(false)
+          setSelfPreviewHidden(false)
           ws.send({ type: "webrtc-ready", clientId: ws.getClientId() })
         } catch {
           toast.error("Camera access denied")
@@ -77,9 +90,12 @@ export const WebcamProvider: ParentComponent = (props) => {
       }
     },
 
-    toggleMute() {
-      const newMuted = webrtc.toggleMute()
-      setMuted(newMuted)
+    toggleSelfPreview() {
+      setSelfPreviewHidden((hidden) => !hidden)
+    },
+
+    toggleRemoteVisibility(clientId) {
+      setHiddenRemoteIds((ids) => (ids.includes(clientId) ? ids.filter((id) => id !== clientId) : [...ids, clientId]))
     },
   }
 

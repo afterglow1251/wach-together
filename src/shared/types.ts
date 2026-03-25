@@ -23,6 +23,7 @@ export interface RoomInfo {
   isHost: boolean
   clientCount: number
   viewers: string[]
+  activeWebcams?: Array<{ clientId: string; name: string }>
   show: ParsedShow | null
   sourceUrl: string | null
   currentEpisode: Episode | null

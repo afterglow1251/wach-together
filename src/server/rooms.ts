@@ -35,6 +35,7 @@ export function createRoom(hostId: string): Room {
     lastSyncAt: Date.now(),
     clients: new Map(),
     chatMsgCounter: 0,
+    activeWebcams: new Map(),
     chatHistory: [],
     chatReactions: new Map(),
   }
@@ -100,6 +101,7 @@ export function getRoomInfo(room: Room, clientId: string): RoomInfo {
     isHost: room.hostId === clientId,
     clientCount: room.clients.size,
     viewers: Array.from(room.clients.values()).map((c) => c.name),
+    activeWebcams: Array.from(room.activeWebcams, ([activeClientId, name]) => ({ clientId: activeClientId, name })),
     show: room.show,
     sourceUrl: room.sourceUrl,
     currentEpisode: room.currentEpisode,
