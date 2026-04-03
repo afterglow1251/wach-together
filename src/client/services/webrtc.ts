@@ -14,12 +14,14 @@ const peerConnections = new Map<string, RTCPeerConnection>()
 const remoteStreams = new Map<string, MediaStream>()
 const remoteNames = new Map<string, string>()
 const pendingCandidates = new Map<string, RTCIceCandidateInit[]>()
+// Track "making offer" state per peer for perfect negotiation
+const makingOffer = new Map<string, boolean>()
 
 let onLocalStreamChange: LocalStreamCallback | null = null
 let onRemoteStreamsChange: RemoteStreamsCallback | null = null
 
 const RTC_CONFIG: RTCConfiguration = {
-  iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+  iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }],
 }
 
 export function setCallbacks(onLocal: LocalStreamCallback, onRemote: RemoteStreamsCallback) {
@@ -38,7 +40,10 @@ export async function startCamera(): Promise<MediaStream> {
   localStream = stream
   onLocalStreamChange?.(stream)
 
-  await Promise.allSettled(Array.from(peerConnections.keys()).map((clientId) => attachLocalStreamToPeer(clientId)))
+  // Attach local track to all existing peers — onnegotiationneeded will fire automatically
+  for (const clientId of peerConnections.keys()) {
+    attachLocalStreamToPeer(clientId)
+  }
 
   return stream
 }
@@ -52,7 +57,10 @@ export async function stopCamera() {
 
   stream.getTracks().forEach((track) => track.stop())
 
-  await Promise.allSettled(Array.from(peerConnections.keys()).map((clientId) => detachLocalStreamFromPeer(clientId)))
+  // Detach from all peers — onnegotiationneeded will fire automatically
+  for (const clientId of peerConnections.keys()) {
+    detachLocalStreamFromPeer(clientId)
+  }
 }
 
 export function getLocalStream() {
@@ -61,38 +69,38 @@ export function getLocalStream() {
 
 export function syncActiveWebcams(clients: Array<{ clientId: string; name: string }>) {
   for (const client of clients) {
-    void handleSyncedWebcam(client.clientId, client.name)
+    if (client.clientId === ws.getClientId()) continue
+    rememberRemoteName(client.clientId, client.name)
+    getOrCreatePeerConnection(client.clientId)
   }
 }
 
 export function handleWebrtcReady(remoteId: string, name?: string) {
   if (remoteId === ws.getClientId()) return
-
   rememberRemoteName(remoteId, name)
+  // Just ensure the peer connection exists — onnegotiationneeded handles offers
   getOrCreatePeerConnection(remoteId)
-
-  // When we don't have a camera, we must always create the offer to receive the
-  // remote stream — there's no glare risk since we never send webrtc-ready ourselves.
-  // When both sides have cameras (both send webrtc-ready), use deterministic offerer
-  // to avoid simultaneous offers.
-  if (!localStream || ws.getClientId() < remoteId) {
-    void renegotiate(remoteId)
-  }
-}
-
-async function handleSyncedWebcam(remoteId: string, name?: string) {
-  if (remoteId === ws.getClientId()) return
-
-  rememberRemoteName(remoteId, name)
-  getOrCreatePeerConnection(remoteId)
-  await renegotiate(remoteId)
 }
 
 export async function handleOffer(fromClientId: string, sdp: string) {
   const pc = getOrCreatePeerConnection(fromClientId)
+  const polite = isPolite(fromClientId)
+
+  const offerCollision = makingOffer.get(fromClientId) || pc.signalingState !== "stable"
+
+  if (!polite && offerCollision) {
+    // Impolite side ignores incoming offer during collision
+    return
+  }
 
   try {
-    await pc.setRemoteDescription({ type: "offer", sdp })
+    // Polite side rolls back if needed
+    if (offerCollision) {
+      await Promise.all([pc.setLocalDescription({ type: "rollback" }), pc.setRemoteDescription({ type: "offer", sdp })])
+    } else {
+      await pc.setRemoteDescription({ type: "offer", sdp })
+    }
+
     await flushPendingCandidates(fromClientId, pc)
     const answer = await pc.createAnswer()
     await pc.setLocalDescription(answer)
@@ -104,7 +112,6 @@ export async function handleOffer(fromClientId: string, sdp: string) {
     })
   } catch (err) {
     console.error("[WebRTC] Failed to handle offer:", err)
-    removePeer(fromClientId)
   }
 }
 
@@ -155,12 +162,22 @@ export function cleanup() {
   emitRemoteStreamsChange()
 }
 
+// --- Perfect Negotiation internals ---
+
+/** Polite peer = the one with the smaller clientId. Polite yields on glare. */
+function isPolite(remoteId: string): boolean {
+  return ws.getClientId() < remoteId
+}
+
 function getOrCreatePeerConnection(targetId: string): RTCPeerConnection {
   const existing = peerConnections.get(targetId)
   if (existing) return existing
 
   const pc = new RTCPeerConnection(RTC_CONFIG)
   peerConnections.set(targetId, pc)
+  makingOffer.set(targetId, false)
+
+  // Set up transceiver with current local track (or recvonly)
   const localVideoTrack = localStream?.getVideoTracks()[0]
   if (localVideoTrack && localStream) {
     pc.addTransceiver(localVideoTrack, { direction: "sendrecv", streams: [localStream] })
@@ -168,16 +185,32 @@ function getOrCreatePeerConnection(targetId: string): RTCPeerConnection {
     pc.addTransceiver("video", { direction: "recvonly" })
   }
 
+  // Perfect Negotiation: browser fires this when SDP needs updating
+  pc.onnegotiationneeded = async () => {
+    try {
+      makingOffer.set(targetId, true)
+      await pc.setLocalDescription()
+      ws.send({
+        type: "webrtc-offer",
+        clientId: ws.getClientId(),
+        targetClientId: targetId,
+        sdp: pc.localDescription!.sdp,
+      })
+    } catch (err) {
+      console.error("[WebRTC] Failed to create offer:", err)
+    } finally {
+      makingOffer.set(targetId, false)
+    }
+  }
+
   pc.ontrack = (event) => {
     const stream = event.streams[0] ?? new MediaStream([event.track])
-
     remoteStreams.set(targetId, stream)
     emitRemoteStreamsChange()
   }
 
   pc.onicecandidate = (event) => {
     if (!event.candidate) return
-
     ws.send({
       type: "webrtc-ice",
       clientId: ws.getClientId(),
@@ -187,30 +220,40 @@ function getOrCreatePeerConnection(targetId: string): RTCPeerConnection {
   }
 
   pc.onconnectionstatechange = () => {
-    if (pc.connectionState === "disconnected" || pc.connectionState === "failed" || pc.connectionState === "closed") {
+    if (pc.connectionState === "failed") {
+      // ICE restart instead of teardown
+      pc.restartIce()
+    } else if (pc.connectionState === "closed") {
       removePeer(targetId)
+    }
+  }
+
+  pc.oniceconnectionstatechange = () => {
+    if (pc.iceConnectionState === "failed") {
+      pc.restartIce()
     }
   }
 
   return pc
 }
 
-async function attachLocalStreamToPeer(clientId: string) {
+function attachLocalStreamToPeer(clientId: string) {
   const stream = localStream
   if (!stream) return
 
-  const pc = getOrCreatePeerConnection(clientId)
-  const transceiver = ensureVideoTransceiver(pc)
+  const pc = peerConnections.get(clientId)
+  if (!pc) return
+
   const localVideoTrack = stream.getVideoTracks()[0]
   if (!localVideoTrack) return
 
+  const transceiver = ensureVideoTransceiver(pc)
   transceiver.direction = "sendrecv"
-  await transceiver.sender.replaceTrack(localVideoTrack)
-
-  await renegotiate(clientId)
+  void transceiver.sender.replaceTrack(localVideoTrack)
+  // onnegotiationneeded fires automatically
 }
 
-async function detachLocalStreamFromPeer(clientId: string) {
+function detachLocalStreamFromPeer(clientId: string) {
   const pc = peerConnections.get(clientId)
   if (!pc) return
 
@@ -218,27 +261,8 @@ async function detachLocalStreamFromPeer(clientId: string) {
   if (!transceiver) return
 
   transceiver.direction = "recvonly"
-  await transceiver.sender.replaceTrack(null)
-
-  await renegotiate(clientId)
-}
-
-async function renegotiate(targetId: string) {
-  const pc = peerConnections.get(targetId)
-  if (!pc || pc.signalingState !== "stable") return
-
-  try {
-    const offer = await pc.createOffer()
-    await pc.setLocalDescription(offer)
-    ws.send({
-      type: "webrtc-offer",
-      clientId: ws.getClientId(),
-      targetClientId: targetId,
-      sdp: offer.sdp!,
-    })
-  } catch (err) {
-    console.error("[WebRTC] Failed to renegotiate:", err)
-  }
+  void transceiver.sender.replaceTrack(null)
+  // onnegotiationneeded fires automatically
 }
 
 async function flushPendingCandidates(clientId: string, pc: RTCPeerConnection) {
@@ -258,10 +282,13 @@ function removePeer(clientId: string) {
     pc.ontrack = null
     pc.onicecandidate = null
     pc.onconnectionstatechange = null
+    pc.oniceconnectionstatechange = null
+    pc.onnegotiationneeded = null
     pc.close()
     peerConnections.delete(clientId)
   }
 
+  makingOffer.delete(clientId)
   pendingCandidates.delete(clientId)
   removeRemoteStream(clientId)
 }
