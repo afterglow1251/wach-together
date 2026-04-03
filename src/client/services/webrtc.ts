@@ -21,7 +21,16 @@ let onLocalStreamChange: LocalStreamCallback | null = null
 let onRemoteStreamsChange: RemoteStreamsCallback | null = null
 
 const RTC_CONFIG: RTCConfiguration = {
-  iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }],
+  iceServers: [
+    {
+      urls: [
+        "stun:stun.cloudflare.com:3478",
+        "stun:stun.l.google.com:19302",
+        "stun:stun1.l.google.com:19302",
+        "stun:stun.services.mozilla.com:3478",
+      ],
+    },
+  ],
 }
 
 export function setCallbacks(onLocal: LocalStreamCallback, onRemote: RemoteStreamsCallback) {
