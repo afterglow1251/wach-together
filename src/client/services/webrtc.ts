@@ -71,8 +71,11 @@ export function handleWebrtcReady(remoteId: string, name?: string) {
   rememberRemoteName(remoteId, name)
   getOrCreatePeerConnection(remoteId)
 
-  // Deterministic offerer keeps renegotiation collisions predictable.
-  if (ws.getClientId() < remoteId) {
+  // When we don't have a camera, we must always create the offer to receive the
+  // remote stream — there's no glare risk since we never send webrtc-ready ourselves.
+  // When both sides have cameras (both send webrtc-ready), use deterministic offerer
+  // to avoid simultaneous offers.
+  if (!localStream || ws.getClientId() < remoteId) {
     void renegotiate(remoteId)
   }
 }
