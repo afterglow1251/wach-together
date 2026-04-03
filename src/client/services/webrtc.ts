@@ -169,8 +169,7 @@ function getOrCreatePeerConnection(targetId: string): RTCPeerConnection {
   }
 
   pc.ontrack = (event) => {
-    const [stream] = event.streams
-    if (!stream) return
+    const stream = event.streams[0] ?? new MediaStream([event.track])
 
     remoteStreams.set(targetId, stream)
     emitRemoteStreamsChange()
