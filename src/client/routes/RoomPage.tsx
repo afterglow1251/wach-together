@@ -17,7 +17,7 @@ import VideoPlayer from "../components/room/VideoPlayer"
 import SeekOverlay from "../components/room/SeekOverlay"
 import ReactionBar from "../components/room/ReactionBar"
 import FullscreenChat from "../components/room/FullscreenChat"
-import CameraToggle from "../components/room/CameraToggle"
+// import CameraToggle from "../components/room/CameraToggle"
 import WebcamOverlay from "../components/room/WebcamOverlay"
 import { WebcamProvider } from "../stores/webcam"
 import type { Episode } from "../../shared/types"
@@ -376,7 +376,7 @@ export default function RoomPage() {
               onTyping={() => room.sendTyping()}
             />
             <WebcamOverlay />
-            <CameraToggle />
+            {/* <CameraToggle /> */}
 
             {/* Player overlay — shown when no video */}
             <Show when={!room.state.streamUrl}>
