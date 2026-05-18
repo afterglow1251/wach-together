@@ -50,6 +50,7 @@ export const mockRoomInfo: RoomInfo = {
   sourceUrl: null,
   currentEpisode: null,
   streamUrl: null,
+  dubIndex: 0,
   isPlaying: false,
   currentTime: 0,
   chatHistory: [],

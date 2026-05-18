@@ -11,6 +11,7 @@ export interface Room {
   sourceUrl: string | null
   currentEpisode: Episode | null
   streamUrl: string | null
+  dubIndex: number
   isPlaying: boolean
   currentTime: number
   lastSyncAt: number

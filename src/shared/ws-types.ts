@@ -5,6 +5,7 @@ export type WSClientMessage =
   | { type: "identify"; clientId: string; userId: number; name: string }
   | { type: "join"; clientId: string; roomCode: string; name: string; userId?: number }
   | { type: "set-show"; clientId: string; show: ParsedShow; sourceUrl: string }
+  | { type: "set-dub"; clientId: string; dubIndex: number }
   | { type: "select-episode"; clientId: string; episode: Episode }
   | { type: "stream-ready"; clientId: string; streamUrl: string }
   | { type: "play"; clientId: string; time?: number }
@@ -28,6 +29,7 @@ export type WSClientMessage =
 export type WSServerMessage =
   | { type: "room-info"; room: RoomInfo }
   | { type: "show-loaded"; show: ParsedShow; sourceUrl: string | null }
+  | { type: "dub-changed"; dubIndex: number }
   | { type: "episode-changed"; episode: Episode; streamUrl: string }
   | { type: "play"; time: number }
   | { type: "pause"; time: number }

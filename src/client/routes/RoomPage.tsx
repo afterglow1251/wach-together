@@ -28,7 +28,6 @@ export default function RoomPage() {
   const navigate = useNavigate()
   const auth = useAuth()
   const room = useRoom()
-  const [dubIndex, setDubIndex] = createSignal(0)
   const [autoMarkedId, setAutoMarkedId] = createSignal<string | null>(null)
   const [initialSeek, setInitialSeek] = createSignal<number | undefined>(undefined)
 
@@ -278,7 +277,7 @@ export default function RoomPage() {
     }
   })
 
-  const currentDub = () => room.state.show?.dubs[dubIndex()] ?? null
+  const currentDub = () => room.state.show?.dubs[room.state.dubIndex] ?? null
   const episodes = () => currentDub()?.episodes ?? []
   const watchedIds = () => watched.data ?? new Set<string>()
 
@@ -325,7 +324,12 @@ export default function RoomPage() {
         <ShowInfo title={room.state.show?.title} />
 
         <Show when={room.state.show}>
-          <DubSelector dubs={room.state.show!.dubs} value={dubIndex()} onChange={setDubIndex} />
+          <DubSelector
+            dubs={room.state.show!.dubs}
+            value={room.state.dubIndex}
+            onChange={room.setDub}
+            isHost={room.state.isHost}
+          />
         </Show>
 
         <Show when={episodes().length > 0}>

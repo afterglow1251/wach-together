@@ -33,6 +33,7 @@ export interface RoomState {
   sourceUrl: string | null
   currentEpisode: Episode | null
   streamUrl: string | null
+  dubIndex: number
   isPlaying: boolean
   currentTime: number
   chat: ChatMsg[]
@@ -47,6 +48,7 @@ interface RoomActions {
   joinRoom: (code: string, name: string) => void
   leaveRoom: () => void
   setShow: (show: ParsedShow, sourceUrl: string) => void
+  setDub: (dubIndex: number) => void
   selectEpisode: (episode: Episode) => void
   streamReady: (streamUrl: string) => void
   sendPlay: (time: number) => void
@@ -83,6 +85,7 @@ export const RoomProvider: ParentComponent<{ username: Accessor<string>; userId:
     sourceUrl: null,
     currentEpisode: null,
     streamUrl: null,
+    dubIndex: 0,
     isPlaying: false,
     currentTime: 0,
     chat: [],
@@ -104,9 +107,13 @@ export const RoomProvider: ParentComponent<{ username: Accessor<string>; userId:
           // Keep current playback when re-loading the same URL
           currentEpisode: sameShow ? state.currentEpisode : null,
           streamUrl: sameShow ? state.streamUrl : null,
+          dubIndex: sameShow ? state.dubIndex : 0,
         })
         break
       }
+      case "dub-changed":
+        setState({ dubIndex: msg.dubIndex })
+        break
       case "episode-changed":
         setState({ currentEpisode: msg.episode, streamUrl: msg.streamUrl })
         break
@@ -247,6 +254,7 @@ export const RoomProvider: ParentComponent<{ username: Accessor<string>; userId:
       sourceUrl: room.sourceUrl,
       currentEpisode: room.currentEpisode,
       streamUrl: room.streamUrl,
+      dubIndex: room.dubIndex ?? 0,
       isPlaying: room.isPlaying,
       currentTime: room.currentTime,
       chat: restoredChat,
@@ -298,6 +306,7 @@ export const RoomProvider: ParentComponent<{ username: Accessor<string>; userId:
         sourceUrl: null,
         currentEpisode: null,
         streamUrl: null,
+        dubIndex: 0,
         isPlaying: false,
         currentTime: 0,
         chat: [],
@@ -307,6 +316,11 @@ export const RoomProvider: ParentComponent<{ username: Accessor<string>; userId:
 
     setShow(show, sourceUrl) {
       ws.send({ type: "set-show", clientId: ws.getClientId(), show, sourceUrl })
+    },
+
+    setDub(dubIndex) {
+      setState({ dubIndex })
+      ws.send({ type: "set-dub", clientId: ws.getClientId(), dubIndex })
     },
 
     selectEpisode(episode) {

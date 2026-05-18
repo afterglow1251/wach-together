@@ -230,10 +230,27 @@ export default new Elysia().ws("/ws", {
         room.sourceUrl = msg.sourceUrl || null
         room.currentEpisode = null
         room.streamUrl = null
+        room.dubIndex = 0
         room.currentTime = 0
         room.isPlaying = false
 
         broadcastToRoom(room, { type: "show-loaded", show: msg.show, sourceUrl: room.sourceUrl })
+        break
+      }
+
+      case "set-dub": {
+        const state = wsState.get(cid)
+        if (!state?.roomCode) return
+        const room = getRoom(state.roomCode)
+        if (!room || room.hostId !== cid) return
+
+        const total = room.show?.dubs.length ?? 0
+        if (total === 0) return
+        const idx = Math.max(0, Math.min(msg.dubIndex | 0, total - 1))
+        if (idx === room.dubIndex) return
+
+        room.dubIndex = idx
+        broadcastToRoom(room, { type: "dub-changed", dubIndex: idx }, cid)
         break
       }
 
