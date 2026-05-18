@@ -264,13 +264,13 @@ export async function parseUaserialsPage(url: string): Promise<ParsedShow> {
 
   const embedHtml = await embedResp.text()
 
-  // Extract file: property from Playerjs init — can be a JSON string or a direct m3u8 URL
-  const fileMatch =
-    embedHtml.match(/file:\s*["']([\s\S]*?)["'],\s*\n?\s*(?:subtitle|\/\/|poster|default_quality)/) ||
-    embedHtml.match(/file:\s*["']([\s\S]*?)["']/)
+  // Extract file: property from Playerjs init — can be a JSON string or a direct m3u8 URL.
+  // The value is wrapped in either ' or " — the JSON playlist contains the OTHER quote inside,
+  // so we backreference the opening quote to avoid stopping early.
+  const fileMatch = embedHtml.match(/file:\s*(["'])([\s\S]*?)\1/)
   if (!fileMatch) throw new Error("Could not find file data in player embed")
 
-  const fileValue = fileMatch[1].trim()
+  const fileValue = fileMatch[2].trim()
 
   // Direct m3u8 URL (movie)
   if (fileValue.includes(".m3u8") && !fileValue.startsWith("[")) {
